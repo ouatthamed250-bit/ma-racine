@@ -3,7 +3,8 @@
 // Ne jamais committer de vraies clés : voir .env.local.example.
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, type Auth } from 'firebase/auth';
+import { getFirestore, type Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -14,7 +15,19 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Évite la double initialisation en dev (HMR) / en cas d'imports multiples.
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+// getAuth()/getFirestore() exigent un navigateur et des clés valides : on ne
+// les appelle jamais au prerender serveur (sinon le build échoue tant que les
+// clés NEXT_PUBLIC_FIREBASE_* ne sont pas renseignées dans .env.local). Côté
+// serveur on expose des espaces réservés, jamais utilisés (les effets sont client).
+let auth: Auth;
+let db: Firestore;
+if (typeof window !== 'undefined') {
+  const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+} else {
+  auth = undefined as unknown as Auth;
+  db = undefined as unknown as Firestore;
+}
 
-export const auth = getAuth(app);
+export { auth, db };

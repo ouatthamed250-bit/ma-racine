@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import styles from './MaRacinePuzzle.module.css';
+import { useAuth } from '@/context/AuthContext';
+import { ensureUserDoc, loadProgress, saveHighestUnlocked } from '@/lib/progress';
 
 type TileType = { emoji: string; name: string; bg: string };
 type Palette = { city: string; types: TileType[] };
@@ -232,6 +234,8 @@ const swapCells = (g: Cell[][], a: Pos, b: Pos) => {
 };
 
 export default function MaRacinePuzzle() {
+  const { user } = useAuth();
+
   // ---- Refs "moteur" (source de vérité synchrone pendant la résolution) ----
   const gridRef = useRef<Cell[][]>([]);
   const movesRef = useRef(movesForLevel(1));
@@ -299,6 +303,9 @@ export default function MaRacinePuzzle() {
     if (levelRef.current === highestUnlockedRef.current && levelRef.current < LEVELS) {
       highestUnlockedRef.current += 1;
       setHighestUnlocked(highestUnlockedRef.current);
+      if (user) {
+        saveHighestUnlocked(user.uid, highestUnlockedRef.current).catch(() => {});
+      }
     }
   };
 
@@ -561,6 +568,29 @@ export default function MaRacinePuzzle() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Charge la progression Firestore au chargement (si connecté).
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (!user) return;
+      try {
+        await ensureUserDoc(user);
+        const saved = await loadProgress(user);
+        if (!cancelled) {
+          highestUnlockedRef.current = saved;
+          setHighestUnlocked(saved);
+        }
+      } catch {
+        // Firestore indisponible : on garde la valeur par défaut.
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const continueWithMoves = (extra: number) => {
     movesRef.current += extra;
