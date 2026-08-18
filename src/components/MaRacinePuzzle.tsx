@@ -813,12 +813,12 @@ export default function MaRacinePuzzle() {
       setWalker({ cityIndex: currentCity, from: pos - 1, to: pos });
       setViewMode('map');
     } else {
-      // Changement de ville : comportement bus existant (overlay générique).
+      // Changement de ville : carte de transition bus.
       setTransitionLevel(next);
       transitionTimerRef.current = window.setTimeout(() => {
         setTransitionLevel(null);
         commitNext();
-      }, 1000);
+      }, 1200);
     }
   };
 
@@ -1154,12 +1154,12 @@ export default function MaRacinePuzzle() {
 
       {transitionLevel !== null && (
         <div className={styles.modalOverlay}>
-          <div className={styles.transitionBody}>
-            <div className={styles.transitionTrack}>
-              <span className={styles.transitionIcon}>🚶🏾</span>
-            </div>
-            <div className={styles.transitionText}>
-              Niveau {transitionLevel} débloqué !
+          <div className={styles.modalCard}>
+            <div className={styles.busTransitionBody}>
+              <div className={styles.busIcon}>🚌</div>
+              <div className={styles.busTransitionText}>
+                En route vers {PALETTES[cityForLevel(transitionLevel)].city}...
+              </div>
             </div>
           </div>
         </div>
