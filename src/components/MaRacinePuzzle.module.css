@@ -369,6 +369,28 @@
   text-align: center;
 }
 
+.livesBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 16px 0;
+}
+
+.livesHearts {
+  font-family: var(--font-baloo), sans-serif;
+  font-weight: 800;
+  font-size: 15px;
+  color: #e0472b;
+}
+
+.livesCountdown {
+  font-family: var(--font-manrope), sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--bogolanSoft);
+}
+
   background: var(--ciel);
   color: white;
 }

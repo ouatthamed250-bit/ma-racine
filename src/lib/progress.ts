@@ -12,6 +12,8 @@ const DEFAULT_PROGRESS = {
   boltCount: 1,
   shuffleCount: 1,
   coins: 0,
+  lives: 5,
+  nextLifeAt: null,
 };
 
 export function userDocRef(uid: string) {
@@ -51,4 +53,27 @@ export async function loadProgress(user: User): Promise<number> {
 /** Sauvegarde le highestUnlocked (appelé uniquement à la victoire). */
 export async function saveHighestUnlocked(uid: string, level: number) {
   await updateDoc(userDocRef(uid), { highestUnlocked: level });
+}
+
+export type LivesState = { lives: number; nextLifeAt: number | null };
+
+/** Retourne les vies (0-5) et le timestamp de la prochaine vie (null si plein). */
+export async function loadLives(user: User): Promise<LivesState> {
+  const snap = await getDoc(userDocRef(user.uid));
+  if (snap.exists()) {
+    const data = snap.data();
+    const lives =
+      typeof data.lives === 'number' ? Math.max(0, Math.min(5, Math.floor(data.lives))) : 5;
+    const nextLifeAt = typeof data.nextLifeAt === 'number' ? data.nextLifeAt : null;
+    return { lives, nextLifeAt };
+  }
+  return { lives: 5, nextLifeAt: null };
+}
+
+/** Sauvegarde les vies et le timestamp de recharge. */
+export async function saveLives(uid: string, livesState: LivesState) {
+  await updateDoc(userDocRef(uid), {
+    lives: livesState.lives,
+    nextLifeAt: livesState.nextLifeAt,
+  });
 }

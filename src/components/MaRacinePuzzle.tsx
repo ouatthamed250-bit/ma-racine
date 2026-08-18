@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import styles from './MaRacinePuzzle.module.css';
 import { useAuth } from '@/context/AuthContext';
-import { ensureUserDoc, loadProgress, saveHighestUnlocked } from '@/lib/progress';
+import { ensureUserDoc, loadProgress, saveHighestUnlocked, loadLives, saveLives } from '@/lib/progress';
 
 type TileType = { emoji: string; name: string; bg: string };
 type Palette = { city: string; types: TileType[] };
@@ -105,6 +105,7 @@ const PALETTES: Palette[] = [
 const LEVELS = 96;
 const LEVELS_PER_CITY = 12;
 const DAILY_BONUS_KEY = 'maRacineLastBonusDate';
+const REFILL_MS = 3 * 60 * 1000; // 3 minutes par vie
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 const todayStr = () => {
@@ -252,6 +253,8 @@ export default function MaRacinePuzzle() {
   const paletteRef = useRef(0);
   const highestUnlockedRef = useRef(1);
   const transitionTimerRef = useRef<number | null>(null);
+  const livesRef = useRef(5);
+  const nextLifeAtRef = useRef<number | null>(null);
 
   // ---- Etat d'affichage (déclenche les re-rendus) ----
   const [currentLevel, setCurrentLevel] = useState(1);
@@ -274,6 +277,10 @@ export default function MaRacinePuzzle() {
   const [showVictoryModal, setShowVictoryModal] = useState(false);
   const [showDailyBonus, setShowDailyBonus] = useState(false);
   const [transitionLevel, setTransitionLevel] = useState<number | null>(null);
+  const [lives, setLives] = useState(5);
+  const [nextLifeAt, setNextLifeAt] = useState<number | null>(null);
+  const [showNoLives, setShowNoLives] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   const syncGrid = () => setGridView(gridRef.current.map((row) => [...row]));
 
@@ -579,9 +586,15 @@ export default function MaRacinePuzzle() {
       try {
         await ensureUserDoc(user);
         const saved = await loadProgress(user);
+        const livesState = await loadLives(user);
         if (!cancelled) {
           highestUnlockedRef.current = saved;
           setHighestUnlocked(saved);
+          livesRef.current = livesState.lives;
+          nextLifeAtRef.current = livesState.nextLifeAt;
+          setLives(livesState.lives);
+          setNextLifeAt(livesState.nextLifeAt);
+          applyRecharge();
         }
       } catch {
         // Firestore indisponible : on garde la valeur par défaut.
@@ -603,6 +616,85 @@ export default function MaRacinePuzzle() {
     };
   }, []);
 
+  const formatRemaining = (ms: number) => {
+    const totalSec = Math.max(0, Math.ceil(ms / 1000));
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
+  const applyRecharge = () => {
+    const nowMs = Date.now();
+    let l = livesRef.current;
+    let next = nextLifeAtRef.current;
+    if (l >= 5) {
+      if (next !== null) {
+        nextLifeAtRef.current = null;
+        setNextLifeAt(null);
+        if (user) saveLives(user.uid, { lives: l, nextLifeAt: null }).catch(() => {});
+      }
+      return;
+    }
+    if (next === null || next > nowMs) return;
+    let t = next;
+    while (l < 5 && t <= nowMs) {
+      l += 1;
+      t += REFILL_MS;
+    }
+    const newNext = l >= 5 ? null : t;
+    livesRef.current = l;
+    nextLifeAtRef.current = newNext;
+    setLives(l);
+    setNextLifeAt(newNext);
+    if (user) saveLives(user.uid, { lives: l, nextLifeAt: newNext }).catch(() => {});
+  };
+
+  const consumeLife = () => {
+    const wasFull = livesRef.current >= 5;
+    const newLives = Math.max(0, livesRef.current - 1);
+    let next = nextLifeAtRef.current;
+    if (wasFull) next = Date.now() + REFILL_MS;
+    livesRef.current = newLives;
+    nextLifeAtRef.current = next;
+    setLives(newLives);
+    setNextLifeAt(next);
+    if (user) saveLives(user.uid, { lives: newLives, nextLifeAt: next }).catch(() => {});
+  };
+
+  const addLife = () => {
+    const newLives = Math.min(5, livesRef.current + 1);
+    const next = newLives >= 5 ? null : nextLifeAtRef.current;
+    livesRef.current = newLives;
+    nextLifeAtRef.current = next;
+    setLives(newLives);
+    setNextLifeAt(next);
+    if (user) saveLives(user.uid, { lives: newLives, nextLifeAt: next }).catch(() => {});
+    setShowNoLives(false);
+  };
+
+  const retryLevel = () => {
+    if (livesRef.current <= 0) {
+      setShowNoLives(true);
+      return;
+    }
+    consumeLife();
+    startLevel(currentLevel);
+  };
+
+  // Recharge les vies toutes les 15 s tant que l'app est ouverte.
+  useEffect(() => {
+    if (!user) return;
+    const id = window.setInterval(() => applyRecharge(), 15000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Tick 1 s pour le compte à rebours des vies.
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const continueWithMoves = (extra: number) => {
     movesRef.current += extra;
     setMoves(movesRef.current);
@@ -614,6 +706,11 @@ export default function MaRacinePuzzle() {
       setViewMode('play');
       return;
     }
+    if (livesRef.current <= 0) {
+      setShowNoLives(true);
+      return;
+    }
+    consumeLife();
     startLevel(level);
     setViewMode('play');
   };
@@ -646,6 +743,14 @@ export default function MaRacinePuzzle() {
 
   return (
     <div className={styles.phoneScreen}>
+      <div className={styles.livesBar}>
+        <span className={styles.livesHearts}>❤️ {lives}/5</span>
+        {lives < 5 && nextLifeAt !== null && (
+          <span className={styles.livesCountdown}>
+            Prochaine vie : {formatRemaining(nextLifeAt - now)}
+          </span>
+        )}
+      </div>
       {viewMode === 'map' ? (
         <div className={styles.travelMap}>
           {PALETTES.map((city, ci) => {
@@ -787,7 +892,7 @@ export default function MaRacinePuzzle() {
         * repère provisoire — à remplacer par une vraie icône
       </div>
 
-      <button type="button" className={styles.resetBtn} onClick={() => startLevel(currentLevel)}>
+      <button type="button" className={styles.resetBtn} onClick={retryLevel}>
         🔄 Recommencer le niveau
       </button>
         </>
@@ -859,7 +964,7 @@ export default function MaRacinePuzzle() {
             <button
               type="button"
               className={`${styles.modalBtn} ${styles.ghost}`}
-              onClick={() => startLevel(currentLevel)}
+              onClick={retryLevel}
             >
               🔄 Réessayer le niveau
             </button>
@@ -894,7 +999,7 @@ export default function MaRacinePuzzle() {
             <button
               type="button"
               className={`${styles.modalBtn} ${styles.ghost}`}
-              onClick={() => startLevel(currentLevel)}
+              onClick={retryLevel}
             >
               Rejouer
             </button>
@@ -932,6 +1037,32 @@ export default function MaRacinePuzzle() {
             <div className={styles.transitionText}>
               Niveau {transitionLevel} débloqué !
             </div>
+          </div>
+        </div>
+      )}
+
+      {showNoLives && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalCard}>
+            <div className={styles.modalTitle}>Plus de vies ! 💔</div>
+            <div className={styles.modalBody} style={{ textAlign: 'center' }}>
+              Prochaine vie dans{' '}
+              <strong>{formatRemaining(nextLifeAt !== null ? nextLifeAt - now : 0)}</strong>
+            </div>
+            <button
+              type="button"
+              className={`${styles.modalBtn} ${styles.ad}`}
+              onClick={addLife}
+            >
+              🎬 Regarder une pub · +1 vie
+            </button>
+            <button
+              type="button"
+              className={`${styles.modalBtn} ${styles.pay}`}
+              onClick={addLife}
+            >
+              💳 Payer · +1 vie
+            </button>
           </div>
         </div>
       )}
