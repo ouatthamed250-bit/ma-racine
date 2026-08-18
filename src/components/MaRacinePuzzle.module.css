@@ -116,14 +116,49 @@
   padding: 8px 12px;
   margin-bottom: 10px;
 }
-.mapNodes {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 8px;
+.mapRoute {
+  position: relative;
+  width: 260px;
+  height: 960px;
+  margin: 0 auto;
 }
+
+.mapRouteSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.mapRouteSolid {
+  fill: none;
+  stroke: #e8d9bc;
+  stroke-width: 20;
+  stroke-linecap: round;
+}
+
+.mapRouteDashed {
+  fill: none;
+  stroke: #2e1f14;
+  stroke-width: 20;
+  stroke-dasharray: 1 24;
+  opacity: 0.18;
+}
+
+.mapNodeWrap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
 .mapNode {
   position: relative;
-  aspect-ratio: 1 / 1;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   border: 2px solid rgba(46, 31, 20, 0.15);
   background: var(--ivoireCard);
@@ -136,12 +171,53 @@
   cursor: pointer;
   color: var(--bogolan);
 }
+
 .mapNodeActive {
-  background: var(--soleil);
-  border-color: var(--soleilDeep);
-  transform: scale(1.08);
-  box-shadow: 0 0 0 3px rgba(255, 182, 39, 0.35);
+  background: #e0472b;
+  border-color: #b23a20;
+  color: #fff;
+  animation: nodePulse 1.2s ease-in-out infinite;
 }
+
+@keyframes nodePulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+.mapActiveLabel {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 4px;
+  font-family: var(--font-manrope), sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  color: #e0472b;
+  background: #fffaf0;
+  padding: 2px 6px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(46, 31, 20, 0.15);
+  white-space: nowrap;
+  z-index: 6;
+}
+
+.walkerIcon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 26px;
+  offset-path: var(--route-path);
+  offset-anchor: center;
+  z-index: 5;
+  pointer-events: none;
+}
+
 .mapNodeCompleted {
   background: #e8f6e4;
   border-color: #5aa84f;

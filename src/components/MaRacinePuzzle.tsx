@@ -234,6 +234,48 @@ const swapCells = (g: Cell[][], a: Pos, b: Pos) => {
   g[b.r][b.c] = tmp;
 };
 
+// ---- Carte SVG : route par ville (12 nœuds) ----
+const ROUTE_CX = 130;
+const ROUTE_AMP = 78;
+const ROUTE_FREQ = 0.85;
+const ROUTE_SPACING = 78;
+const ROUTE_START_Y = 50;
+
+const routeXs = Array.from({ length: 12 }, (_, i) =>
+  ROUTE_CX + ROUTE_AMP * Math.sin(i * ROUTE_FREQ)
+);
+const routeYs = Array.from({ length: 12 }, (_, i) => ROUTE_START_Y + i * ROUTE_SPACING);
+
+function buildRoutePath(xs: number[], ys: number[]): string {
+  let d = `M ${xs[0]},${ys[0]}`;
+  for (let i = 1; i <= 10; i++) {
+    const mx = (xs[i] + xs[i + 1]) / 2;
+    const my = (ys[i] + ys[i + 1]) / 2;
+    d += ` Q ${xs[i]},${ys[i]} ${mx},${my}`;
+  }
+  d += ` T ${xs[11]},${ys[11]}`;
+  return d;
+}
+
+const ROUTE_PATH_D = buildRoutePath(routeXs, routeYs);
+
+// Convertit la position d'un nœud (x, y) en % de la longueur du path,
+// en trouvant le point du path le plus proche via getPointAtLength (petits pas).
+function percentAtNode(pathEl: SVGPathElement, xi: number, yi: number, total: number): number {
+  const steps = 400;
+  let bestStep = 0;
+  let bestDist = Infinity;
+  for (let s = 0; s <= steps; s++) {
+    const pt = pathEl.getPointAtLength((s / steps) * total);
+    const d = (pt.x - xi) * (pt.x - xi) + (pt.y - yi) * (pt.y - yi);
+    if (d < bestDist) {
+      bestDist = d;
+      bestStep = s;
+    }
+  }
+  return (bestStep / steps) * 100;
+}
+
 export default function MaRacinePuzzle() {
   const { user } = useAuth();
 
@@ -255,6 +297,9 @@ export default function MaRacinePuzzle() {
   const transitionTimerRef = useRef<number | null>(null);
   const livesRef = useRef(5);
   const nextLifeAtRef = useRef<number | null>(null);
+  const routePathRefs = useRef<(SVGPathElement | null)[]>([]);
+  const walkerIconRef = useRef<HTMLSpanElement | null>(null);
+  const pendingNextRef = useRef(0);
 
   // ---- Etat d'affichage (déclenche les re-rendus) ----
   const [currentLevel, setCurrentLevel] = useState(1);
@@ -281,6 +326,12 @@ export default function MaRacinePuzzle() {
   const [nextLifeAt, setNextLifeAt] = useState<number | null>(null);
   const [showNoLives, setShowNoLives] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [mapUnlocked, setMapUnlocked] = useState(1);
+  const [walker, setWalker] = useState<{
+    cityIndex: number;
+    from: number;
+    to: number;
+  } | null>(null);
 
   const syncGrid = () => setGridView(gridRef.current.map((row) => [...row]));
 
@@ -594,6 +645,7 @@ export default function MaRacinePuzzle() {
           nextLifeAtRef.current = livesState.nextLifeAt;
           setLives(livesState.lives);
           setNextLifeAt(livesState.nextLifeAt);
+          setMapUnlocked(saved);
           applyRecharge();
         }
       } catch {
@@ -681,6 +733,18 @@ export default function MaRacinePuzzle() {
     startLevel(currentLevel);
   };
 
+  const commitNext = () => {
+    const next = pendingNextRef.current;
+    if (next <= 0) return;
+    setMapUnlocked((m) => Math.max(m, next));
+    startLevel(next);
+  };
+
+  const finishWalker = () => {
+    setWalker(null);
+    commitNext();
+  };
+
   // Recharge les vies toutes les 15 s tant que l'app est ouverte.
   useEffect(() => {
     if (!user) return;
@@ -694,6 +758,28 @@ export default function MaRacinePuzzle() {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
+
+  // Animation du marcheur le long de la route SVG (même ville).
+  useEffect(() => {
+    if (!walker) return;
+    const pathEl = routePathRefs.current[walker.cityIndex];
+    const iconEl = walkerIconRef.current;
+    const finish = () => finishWalker();
+    if (!pathEl || !iconEl) {
+      finish();
+      return;
+    }
+    const total = pathEl.getTotalLength();
+    const fromPct = percentAtNode(pathEl, routeXs[walker.from], routeYs[walker.from], total);
+    const toPct = percentAtNode(pathEl, routeXs[walker.to], routeYs[walker.to], total);
+    const anim = iconEl.animate(
+      [{ offsetDistance: `${fromPct}%` }, { offsetDistance: `${toPct}%` }],
+      { duration: 900, easing: 'ease-in-out', fill: 'forwards' }
+    );
+    anim.onfinish = finish;
+    return () => anim.cancel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [walker]);
 
   const continueWithMoves = (extra: number) => {
     movesRef.current += extra;
@@ -718,11 +804,22 @@ export default function MaRacinePuzzle() {
   const goNextLevel = () => {
     const next = Math.min(LEVELS, currentLevel + 1);
     setShowVictoryModal(false);
-    setTransitionLevel(next);
-    transitionTimerRef.current = window.setTimeout(() => {
-      setTransitionLevel(null);
-      startLevel(next);
-    }, 1000);
+    pendingNextRef.current = next;
+    const nextCity = cityForLevel(next);
+    const currentCity = cityForLevel(currentLevel);
+    if (nextCity === currentCity) {
+      // Même ville : marcheur 🚶🏾 le long de la route SVG réelle.
+      const pos = posInCityFor(currentLevel);
+      setWalker({ cityIndex: currentCity, from: pos - 1, to: pos });
+      setViewMode('map');
+    } else {
+      // Changement de ville : comportement bus existant (overlay générique).
+      setTransitionLevel(next);
+      transitionTimerRef.current = window.setTimeout(() => {
+        setTransitionLevel(null);
+        commitNext();
+      }, 1000);
+    }
   };
 
   const claimDailyBonus = () => {
@@ -758,30 +855,57 @@ export default function MaRacinePuzzle() {
             return (
               <div key={city.city} className={styles.mapCitySection}>
                 <div className={styles.mapCityBanner}>{city.city}</div>
-                <div className={styles.mapNodes}>
+                <div className={styles.mapRoute}>
+                  <svg className={styles.mapRouteSvg} viewBox="0 0 260 960">
+                    <path
+                      ref={(el) => {
+                        routePathRefs.current[ci] = el;
+                      }}
+                      d={ROUTE_PATH_D}
+                      className={styles.mapRouteSolid}
+                    />
+                    <path d={ROUTE_PATH_D} className={styles.mapRouteDashed} />
+                  </svg>
                   {Array.from({ length: LEVELS_PER_CITY }, (_, j) => {
                     const level = cityStart + j;
-                    const isCompleted = level < highestUnlocked;
-                    const isActive = level === highestUnlocked;
-                    const isLocked = level > highestUnlocked;
+                    const isCompleted = level < mapUnlocked;
+                    const isActive = level === mapUnlocked;
+                    const isLocked = level > mapUnlocked;
                     return (
-                      <button
+                      <div
                         key={level}
-                        type="button"
-                        disabled={isLocked}
-                        className={`${styles.mapNode} ${
-                          isActive ? styles.mapNodeActive : ''
-                        } ${isCompleted ? styles.mapNodeCompleted : ''} ${
-                          isLocked ? styles.mapNodeLocked : ''
-                        }`}
-                        onClick={() => goToLevel(level)}
+                        className={styles.mapNodeWrap}
+                        style={{ left: routeXs[j], top: routeYs[j] }}
                       >
-                        <span className={styles.mapNodeNum}>{level}</span>
-                        {isCompleted && <span className={styles.mapNodeStar}>★</span>}
-                        {isLocked && <span className={styles.mapNodeLock}>🔒</span>}
-                      </button>
+                        <button
+                          type="button"
+                          disabled={isLocked}
+                          className={`${styles.mapNode} ${
+                            isActive ? styles.mapNodeActive : ''
+                          } ${isCompleted ? styles.mapNodeCompleted : ''} ${
+                            isLocked ? styles.mapNodeLocked : ''
+                          }`}
+                          onClick={() => goToLevel(level)}
+                        >
+                          <span className={styles.mapNodeNum}>{level}</span>
+                          {isCompleted && <span className={styles.mapNodeStar}>★</span>}
+                          {isLocked && <span className={styles.mapNodeLock}>🔒</span>}
+                        </button>
+                        {isActive && (
+                          <span className={styles.mapActiveLabel}>Toi es ici</span>
+                        )}
+                      </div>
                     );
                   })}
+                  {walker !== null && walker.cityIndex === ci && (
+                    <span
+                      ref={walkerIconRef}
+                      className={styles.walkerIcon}
+                      style={{ ['--route-path' as any]: `path("${ROUTE_PATH_D}")` }}
+                    >
+                      🚶🏾
+                    </span>
+                  )}
                 </div>
               </div>
             );
