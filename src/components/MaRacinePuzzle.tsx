@@ -251,6 +251,7 @@ export default function MaRacinePuzzle() {
   const selectedRef = useRef<Pos | null>(null);
   const paletteRef = useRef(0);
   const highestUnlockedRef = useRef(1);
+  const transitionTimerRef = useRef<number | null>(null);
 
   // ---- Etat d'affichage (déclenche les re-rendus) ----
   const [currentLevel, setCurrentLevel] = useState(1);
@@ -272,6 +273,7 @@ export default function MaRacinePuzzle() {
   const [showFailureModal, setShowFailureModal] = useState(false);
   const [showVictoryModal, setShowVictoryModal] = useState(false);
   const [showDailyBonus, setShowDailyBonus] = useState(false);
+  const [transitionLevel, setTransitionLevel] = useState<number | null>(null);
 
   const syncGrid = () => setGridView(gridRef.current.map((row) => [...row]));
 
@@ -592,6 +594,15 @@ export default function MaRacinePuzzle() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // Nettoie le timer de transition au démontage.
+  useEffect(() => {
+    return () => {
+      if (transitionTimerRef.current !== null) {
+        window.clearTimeout(transitionTimerRef.current);
+      }
+    };
+  }, []);
+
   const continueWithMoves = (extra: number) => {
     movesRef.current += extra;
     setMoves(movesRef.current);
@@ -605,6 +616,16 @@ export default function MaRacinePuzzle() {
     }
     startLevel(level);
     setViewMode('play');
+  };
+
+  const goNextLevel = () => {
+    const next = Math.min(LEVELS, currentLevel + 1);
+    setShowVictoryModal(false);
+    setTransitionLevel(next);
+    transitionTimerRef.current = window.setTimeout(() => {
+      setTransitionLevel(null);
+      startLevel(next);
+    }, 1000);
   };
 
   const claimDailyBonus = () => {
@@ -866,7 +887,7 @@ export default function MaRacinePuzzle() {
             <button
               type="button"
               className={`${styles.modalBtn} ${styles.pay}`}
-              onClick={() => startLevel(Math.min(LEVELS, currentLevel + 1))}
+              onClick={goNextLevel}
             >
               Continuer
             </button>
@@ -898,6 +919,19 @@ export default function MaRacinePuzzle() {
             >
               Réclamer
             </button>
+          </div>
+        </div>
+      )}
+
+      {transitionLevel !== null && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.transitionBody}>
+            <div className={styles.transitionTrack}>
+              <span className={styles.transitionIcon}>🚶🏾</span>
+            </div>
+            <div className={styles.transitionText}>
+              Niveau {transitionLevel} débloqué !
+            </div>
           </div>
         </div>
       )}

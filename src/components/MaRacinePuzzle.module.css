@@ -330,6 +330,45 @@
   border: none;
 }
 .modalBtn.ad {
+.transitionBody {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.transitionTrack {
+  position: relative;
+  width: 180px;
+  height: 20px;
+  border-top: 2px dashed rgba(46, 31, 20, 0.4);
+}
+
+.transitionIcon {
+  position: absolute;
+  top: -13px;
+  left: 0;
+  font-size: 22px;
+  animation: walk 0.85s ease-in-out forwards;
+}
+
+@keyframes walk {
+  from {
+    left: 0;
+  }
+  to {
+    left: calc(100% - 22px);
+  }
+}
+
+.transitionText {
+  font-family: var(--font-baloo), sans-serif;
+  font-weight: 800;
+  font-size: 17px;
+  color: #2e1f14;
+  text-align: center;
+}
+
   background: var(--ciel);
   color: white;
 }
