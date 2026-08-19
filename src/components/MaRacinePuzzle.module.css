@@ -475,6 +475,29 @@
   font-family: var(--font-baloo), sans-serif;
   font-weight: 800;
   font-size: 17px;
+.mapRouteBg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.mapGuideSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.mapGuidePath {
+  fill: none;
+  stroke: none;
+  opacity: 0;
+}
+
   color: #2e1f14;
   text-align: center;
 }

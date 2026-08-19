@@ -259,6 +259,66 @@ function buildRoutePath(xs: number[], ys: number[]): string {
 
 const ROUTE_PATH_D = buildRoutePath(routeXs, routeYs);
 
+// Ville avec fond peint personnalisé : image de fond + nœuds en %.
+const CITY_BACKGROUNDS: (string | null)[] = [
+  '/maps/abidjan-route.png',
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+];
+
+const CITY_NODE_PERCENTS: ({ x: number; y: number }[] | null)[] = [
+  [
+    { x: 44.6, y: 28.11 },
+    { x: 53.15, y: 31.43 },
+    { x: 42.56, y: 36.69 },
+    { x: 49.37, y: 42.21 },
+    { x: 56.75, y: 48.83 },
+    { x: 37.82, y: 53.59 },
+    { x: 47.66, y: 61.49 },
+    { x: 64.73, y: 67.78 },
+    { x: 51.54, y: 76.12 },
+    { x: 39.1, y: 83.82 },
+    { x: 45.66, y: 92.86 },
+    { x: 62.1, y: 99.94 },
+  ],
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+];
+
+// Tracé invisible (guide de déplacement) pour Abidjan, en coordonnées 0-100
+// (correspond au viewBox 0 0 100 100 du <svg> superposé sur l'image).
+const ABIDJAN_GUIDE_D =
+  'M 44.60,28.11 Q 41.52,29.90 48.01,30.83 Q 54.49,31.76 55.45,32.69 Q 56.40,33.61 53.54,34.54 Q 50.68,35.47 45.25,36.36 Q 39.81,37.26 38.69,38.19 Q 37.57,39.11 39.66,40.04 Q 41.74,40.97 46.96,41.90 Q 52.17,42.82 55.03,43.75 Q 57.88,44.68 59.50,45.57 Q 61.11,46.47 59.74,47.40 Q 58.36,48.33 54.68,49.25 Q 51.00,50.18 46.39,51.11 Q 41.79,52.03 39.60,52.96 Q 37.41,53.89 36.76,54.78 Q 36.11,55.68 36.37,56.61 Q 36.62,57.54 38.58,58.46 Q 40.54,59.39 43.63,60.32 Q 46.71,61.24 50.77,62.17 Q 54.83,63.10 57.10,64.00 Q 59.38,64.89 61.53,65.82 Q 63.68,66.75 64.29,67.67 Q 64.91,68.60 63.99,69.53 Q 63.07,70.45 61.42,71.38 Q 59.78,72.31 58.18,73.21 Q 56.59,74.10 54.36,75.03 Q 52.12,75.96 48.47,76.88 Q 44.82,77.81 42.98,78.74 Q 41.14,79.67 39.85,80.59 Q 38.56,81.52 38.74,82.42 Q 38.92,83.31 38.41,84.24 Q 37.91,85.17 37.89,86.09 Q 37.86,87.02 37.46,87.95 Q 37.07,88.88 38.49,89.80 Q 39.92,90.73 42.34,91.63 Q 44.75,92.52 47.35,93.45 Q 49.95,94.38 52.15,95.31 Q 54.34,96.23 55.81,97.16 Q 57.27,98.09 59.68,99.01 T 62.10,99.94';
+
+// Données de route (tracé + coordonnées des nœuds) pour une ville donnée.
+function cityRoute(ci: number): {
+  isPercent: boolean;
+  pathD: string;
+  nodeXs: number[];
+  nodeYs: number[];
+} {
+  if (CITY_NODE_PERCENTS[ci]) {
+    const pts = CITY_NODE_PERCENTS[ci]!;
+    return {
+      isPercent: true,
+      pathD: ABIDJAN_GUIDE_D,
+      nodeXs: pts.map((p) => p.x),
+      nodeYs: pts.map((p) => p.y),
+    };
+  }
+  return { isPercent: false, pathD: ROUTE_PATH_D, nodeXs: routeXs, nodeYs: routeYs };
+}
+
 // Convertit la position d'un nœud (x, y) en % de la longueur du path,
 // en trouvant le point du path le plus proche via getPointAtLength (petits pas).
 function percentAtNode(pathEl: SVGPathElement, xi: number, yi: number, total: number): number {
@@ -759,7 +819,7 @@ export default function MaRacinePuzzle() {
     return () => window.clearInterval(id);
   }, []);
 
-  // Animation du marcheur le long de la route SVG (même ville).
+  // Animation du marcheur le long de la route (même ville).
   useEffect(() => {
     if (!walker) return;
     const pathEl = routePathRefs.current[walker.cityIndex];
@@ -769,9 +829,40 @@ export default function MaRacinePuzzle() {
       finish();
       return;
     }
+    const route = cityRoute(walker.cityIndex);
     const total = pathEl.getTotalLength();
-    const fromPct = percentAtNode(pathEl, routeXs[walker.from], routeYs[walker.from], total);
-    const toPct = percentAtNode(pathEl, routeXs[walker.to], routeYs[walker.to], total);
+    const fromPct = percentAtNode(
+      pathEl,
+      route.nodeXs[walker.from],
+      route.nodeYs[walker.from],
+      total
+    );
+    const toPct = percentAtNode(pathEl, route.nodeXs[walker.to], route.nodeYs[walker.to], total);
+
+    if (route.isPercent) {
+      // Villes à fond peint : on suit le guide invisible via getPointAtLength
+      // (coordonnées 0-100 = % du conteneur). CSS offset-path ne peut pas se
+      // superposer à un path en viewBox 0 0 100 100, donc on anime left/top.
+      const duration = 900;
+      const start = performance.now();
+      let raf = 0;
+      const easeInOut = (t: number) =>
+        t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      const step = (nowMs: number) => {
+        const t = Math.min(1, (nowMs - start) / duration);
+        const dist =
+          (fromPct / 100) * total + ((toPct - fromPct) / 100) * total * easeInOut(t);
+        const pt = pathEl.getPointAtLength(dist);
+        iconEl.style.left = `${pt.x}%`;
+        iconEl.style.top = `${pt.y}%`;
+        if (t < 1) raf = requestAnimationFrame(step);
+        else finish();
+      };
+      raf = requestAnimationFrame(step);
+      return () => cancelAnimationFrame(raf);
+    }
+
+    // Autres villes : offset-path classique.
     const anim = iconEl.animate(
       [{ offsetDistance: `${fromPct}%` }, { offsetDistance: `${toPct}%` }],
       { duration: 900, easing: 'ease-in-out', fill: 'forwards' }
@@ -852,30 +943,54 @@ export default function MaRacinePuzzle() {
         <div className={styles.travelMap}>
           {PALETTES.map((city, ci) => {
             const cityStart = ci * LEVELS_PER_CITY + 1;
+            const route = cityRoute(ci);
+            const hasBg = CITY_BACKGROUNDS[ci] !== null;
+            const nodePts = CITY_NODE_PERCENTS[ci];
             return (
               <div key={city.city} className={styles.mapCitySection}>
                 <div className={styles.mapCityBanner}>{city.city}</div>
                 <div className={styles.mapRoute}>
-                  <svg className={styles.mapRouteSvg} viewBox="0 0 260 960">
-                    <path
-                      ref={(el) => {
-                        routePathRefs.current[ci] = el;
-                      }}
-                      d={ROUTE_PATH_D}
-                      className={styles.mapRouteSolid}
-                    />
-                    <path d={ROUTE_PATH_D} className={styles.mapRouteDashed} />
-                  </svg>
+                  {hasBg ? (
+                    <>
+                      <img
+                        src={CITY_BACKGROUNDS[ci]!}
+                        alt={city.city}
+                        className={styles.mapRouteBg}
+                      />
+                      <svg viewBox="0 0 100 100" className={styles.mapGuideSvg}>
+                        <path
+                          ref={(el) => {
+                            routePathRefs.current[ci] = el;
+                          }}
+                          d={route.pathD}
+                          className={styles.mapGuidePath}
+                        />
+                      </svg>
+                    </>
+                  ) : (
+                    <svg className={styles.mapRouteSvg} viewBox="0 0 260 960">
+                      <path
+                        ref={(el) => {
+                          routePathRefs.current[ci] = el;
+                        }}
+                        d={route.pathD}
+                        className={styles.mapRouteSolid}
+                      />
+                      <path d={route.pathD} className={styles.mapRouteDashed} />
+                    </svg>
+                  )}
                   {Array.from({ length: LEVELS_PER_CITY }, (_, j) => {
                     const level = cityStart + j;
                     const isCompleted = level < mapUnlocked;
                     const isActive = level === mapUnlocked;
                     const isLocked = level > mapUnlocked;
+                    const left = nodePts ? `${nodePts[j].x}%` : routeXs[j];
+                    const top = nodePts ? `${nodePts[j].y}%` : routeYs[j];
                     return (
                       <div
                         key={level}
                         className={styles.mapNodeWrap}
-                        style={{ left: routeXs[j], top: routeYs[j] }}
+                        style={{ left, top }}
                       >
                         <button
                           type="button"
@@ -901,7 +1016,11 @@ export default function MaRacinePuzzle() {
                     <span
                       ref={walkerIconRef}
                       className={styles.walkerIcon}
-                      style={{ ['--route-path' as any]: `path("${ROUTE_PATH_D}")` }}
+                      style={
+                        route.isPercent
+                          ? undefined
+                          : { ['--route-path' as any]: `path("${route.pathD}")` }
+                      }
                     >
                       🚶🏾
                     </span>
