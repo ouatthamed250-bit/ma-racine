@@ -949,7 +949,7 @@ export default function MaRacinePuzzle() {
             return (
               <div key={city.city} className={styles.mapCitySection}>
                 <div className={styles.mapCityBanner}>{city.city}</div>
-                <div className={styles.mapRoute}>
+                <div className={hasBg ? styles.mapRoutePercent : styles.mapRoute}>
                   {hasBg ? (
                     <>
                       <img
@@ -979,52 +979,54 @@ export default function MaRacinePuzzle() {
                       <path d={route.pathD} className={styles.mapRouteDashed} />
                     </svg>
                   )}
-                  {Array.from({ length: LEVELS_PER_CITY }, (_, j) => {
-                    const level = cityStart + j;
-                    const isCompleted = level < mapUnlocked;
-                    const isActive = level === mapUnlocked;
-                    const isLocked = level > mapUnlocked;
-                    const left = nodePts ? `${nodePts[j].x}%` : routeXs[j];
-                    const top = nodePts ? `${nodePts[j].y}%` : routeYs[j];
-                    return (
-                      <div
-                        key={level}
-                        className={styles.mapNodeWrap}
-                        style={{ left, top }}
-                      >
-                        <button
-                          type="button"
-                          disabled={isLocked}
-                          className={`${styles.mapNode} ${
-                            isActive ? styles.mapNodeActive : ''
-                          } ${isCompleted ? styles.mapNodeCompleted : ''} ${
-                            isLocked ? styles.mapNodeLocked : ''
-                          }`}
-                          onClick={() => goToLevel(level)}
+                  <div className={styles.mapNodeLayer}>
+                    {Array.from({ length: LEVELS_PER_CITY }, (_, j) => {
+                      const level = cityStart + j;
+                      const isCompleted = level < mapUnlocked;
+                      const isActive = level === mapUnlocked;
+                      const isLocked = level > mapUnlocked;
+                      const left = nodePts ? `${nodePts[j].x}%` : routeXs[j];
+                      const top = nodePts ? `${nodePts[j].y}%` : routeYs[j];
+                      return (
+                        <div
+                          key={level}
+                          className={styles.mapNodeWrap}
+                          style={{ left, top }}
                         >
-                          <span className={styles.mapNodeNum}>{level}</span>
-                          {isCompleted && <span className={styles.mapNodeStar}>★</span>}
-                          {isLocked && <span className={styles.mapNodeLock}>🔒</span>}
-                        </button>
-                        {isActive && (
-                          <span className={styles.mapActiveLabel}>Toi es ici</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {walker !== null && walker.cityIndex === ci && (
-                    <span
-                      ref={walkerIconRef}
-                      className={styles.walkerIcon}
-                      style={
-                        route.isPercent
-                          ? undefined
-                          : { ['--route-path' as any]: `path("${route.pathD}")` }
-                      }
-                    >
-                      🚶🏾
-                    </span>
-                  )}
+                          <button
+                            type="button"
+                            disabled={isLocked}
+                            className={`${styles.mapNode} ${
+                              isActive ? styles.mapNodeActive : ''
+                            } ${isCompleted ? styles.mapNodeCompleted : ''} ${
+                              isLocked ? styles.mapNodeLocked : ''
+                            }`}
+                            onClick={() => goToLevel(level)}
+                          >
+                            <span className={styles.mapNodeNum}>{level}</span>
+                            {isCompleted && <span className={styles.mapNodeStar}>★</span>}
+                            {isLocked && <span className={styles.mapNodeLock}>🔒</span>}
+                          </button>
+                          {isActive && (
+                            <span className={styles.mapActiveLabel}>Toi es ici</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {walker !== null && walker.cityIndex === ci && (
+                      <span
+                        ref={walkerIconRef}
+                        className={styles.walkerIcon}
+                        style={
+                          route.isPercent
+                            ? undefined
+                            : { ['--route-path' as any]: `path("${route.pathD}")` }
+                        }
+                      >
+                        🚶🏾
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             );

@@ -475,12 +475,15 @@
   font-family: var(--font-baloo), sans-serif;
   font-weight: 800;
   font-size: 17px;
-.mapRouteBg {
-  position: absolute;
-  inset: 0;
+.mapRoutePercent {
+  position: relative;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+}
+
+.mapRouteBg {
+  display: block;
+  width: 100%;
+  height: auto;
   border-radius: 12px;
 }
 
@@ -490,6 +493,13 @@
   width: 100%;
   height: 100%;
   overflow: visible;
+}
+
+.mapNodeLayer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .mapGuidePath {
