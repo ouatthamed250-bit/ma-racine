@@ -13,7 +13,8 @@
 //    (Sur Windows PowerShell :
 //      $env:GOOGLE_APPLICATION_CREDENTIALS="C:\\chemin\\la-cle.json"; node scripts/set-admin.js <uid>)
 
-const admin = require('firebase-admin');
+const { initializeApp, getApps, applicationDefault } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
 
 if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
   console.error(
@@ -29,14 +30,15 @@ if (!uid) {
   process.exit(1);
 }
 
-if (!admin.apps.length) {
-  admin.initializeApp({ credential: admin.credential.applicationDefault() });
+if (!getApps().length) {
+  initializeApp({ credential: applicationDefault() });
 }
 
 async function main() {
   try {
-    const user = await admin.auth().getUser(uid);
-    await admin.auth().setCustomUserClaims(uid, { admin: true });
+    const auth = getAuth();
+    const user = await auth.getUser(uid);
+    await auth.setCustomUserClaims(uid, { admin: true });
     console.log(
       `OK — claims définis pour ${user.email || user.phoneNumber || user.uid} : { admin: true }`
     );
