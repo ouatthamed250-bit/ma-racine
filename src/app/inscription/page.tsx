@@ -24,7 +24,7 @@ export default function Inscription() {
     setSubmitting(true);
     try {
       await signUpWithPhone(phone, password);
-      router.replace('/jeu');
+      router.replace('/choix-avatar');
     } catch {
       setError("Impossible de créer le compte. Vérifie tes informations.");
     } finally {

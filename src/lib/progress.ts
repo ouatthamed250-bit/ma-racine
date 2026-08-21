@@ -14,6 +14,9 @@ const DEFAULT_PROGRESS = {
   coins: 0,
   lives: 5,
   nextLifeAt: null,
+  levelStars: {},
+  avatarId: null,
+  pseudo: '',
 };
 
 export function userDocRef(uid: string) {
@@ -76,4 +79,95 @@ export async function saveLives(uid: string, livesState: LivesState) {
     lives: livesState.lives,
     nextLifeAt: livesState.nextLifeAt,
   });
+}
+
+/** Retourne le nombre de pièces sauvegardées (0 par défaut). */
+export async function loadCoins(user: User): Promise<number> {
+  const snap = await getDoc(userDocRef(user.uid));
+  if (snap.exists()) {
+    const val = snap.data().coins;
+    if (typeof val === 'number' && Number.isFinite(val)) {
+      return Math.max(0, Math.floor(val));
+    }
+  }
+  return 0;
+}
+
+/** Sauvegarde le nouveau total de pièces (appelé à chaque gain, ex: victoire). */
+export async function saveCoins(uid: string, coins: number) {
+  await updateDoc(userDocRef(uid), { coins });
+}
+
+export type BoosterCounts = {
+  bombCount: number;
+  hammerCount: number;
+  boltCount: number;
+  shuffleCount: number;
+};
+
+/** Retourne les compteurs de boosters sauvegardés (>= 0, défaut 1 chacun si jamais joué). */
+export async function loadBoosters(user: User): Promise<BoosterCounts> {
+  const snap = await getDoc(userDocRef(user.uid));
+  if (snap.exists()) {
+    const data = snap.data();
+    const readCount = (val: unknown) =>
+      typeof val === 'number' && Number.isFinite(val) ? Math.max(0, Math.floor(val)) : 1;
+    return {
+      bombCount: readCount(data.bombCount),
+      hammerCount: readCount(data.hammerCount),
+      boltCount: readCount(data.boltCount),
+      shuffleCount: readCount(data.shuffleCount),
+    };
+  }
+  return { bombCount: 1, hammerCount: 1, boltCount: 1, shuffleCount: 1 };
+}
+
+/** Sauvegarde les compteurs de boosters (appelé à chaque changement : usage, bonus, achat). */
+export async function saveBoosters(uid: string, counts: BoosterCounts) {
+  await updateDoc(userDocRef(uid), { ...counts });
+}
+
+export type LevelStars = Record<number, 1 | 2 | 3>;
+
+/** Retourne le nombre d'étoiles (1-3) déjà obtenu pour chaque niveau joué. */
+export async function loadLevelStars(user: User): Promise<LevelStars> {
+  const snap = await getDoc(userDocRef(user.uid));
+  if (snap.exists()) {
+    const raw = snap.data().levelStars;
+    if (raw && typeof raw === 'object') {
+      const stars: LevelStars = {};
+      for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
+        const level = Number(key);
+        if (Number.isFinite(level) && (val === 1 || val === 2 || val === 3)) {
+          stars[level] = val;
+        }
+      }
+      return stars;
+    }
+  }
+  return {};
+}
+
+/** Sauvegarde le nombre d'étoiles d'un niveau (l'appelant garantit qu'on ne diminue jamais). */
+export async function saveLevelStars(uid: string, level: number, stars: 1 | 2 | 3) {
+  await updateDoc(userDocRef(uid), { [`levelStars.${level}`]: stars });
+}
+
+export type Profile = { avatarId: string | null; pseudo: string | null };
+
+/** Retourne l'avatar et le pseudo choisis (null si le joueur n'a jamais fait ce choix). */
+export async function loadProfile(user: User): Promise<Profile> {
+  const snap = await getDoc(userDocRef(user.uid));
+  if (snap.exists()) {
+    const data = snap.data();
+    const avatarId = typeof data.avatarId === 'string' && data.avatarId ? data.avatarId : null;
+    const pseudo = typeof data.pseudo === 'string' && data.pseudo ? data.pseudo : null;
+    return { avatarId, pseudo };
+  }
+  return { avatarId: null, pseudo: null };
+}
+
+/** Sauvegarde l'avatar et le pseudo choisis (écran /choix-avatar, une seule fois). */
+export async function saveProfile(uid: string, profile: { avatarId: string; pseudo: string }) {
+  await updateDoc(userDocRef(uid), { avatarId: profile.avatarId, pseudo: profile.pseudo });
 }

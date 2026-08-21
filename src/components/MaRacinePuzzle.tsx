@@ -1,9 +1,37 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { signOut } from 'firebase/auth';
 import styles from './MaRacinePuzzle.module.css';
+import TrophyScene from './TrophyScene';
 import { useAuth } from '@/context/AuthContext';
-import { ensureUserDoc, loadProgress, saveHighestUnlocked, loadLives, saveLives } from '@/lib/progress';
+import { auth } from '@/lib/firebase';
+import {
+  playSound,
+  useSound,
+  useMusic,
+  isSoundOn,
+  isMusicOn,
+  MUSIC_TRACKS,
+  FETICHE_TRACK,
+} from '@/lib/sound';
+import {
+  ensureUserDoc,
+  loadProgress,
+  saveHighestUnlocked,
+  loadLives,
+  saveLives,
+  loadLevelStars,
+  saveLevelStars,
+  loadBoosters,
+  saveBoosters,
+  loadCoins,
+  saveCoins,
+  phoneFromUser,
+  loadProfile,
+  type LevelStars,
+} from '@/lib/progress';
 
 type TileType = { emoji: string; name: string; bg: string };
 type Palette = { city: string; types: TileType[] };
@@ -151,6 +179,24 @@ const targetForLevel = (L: number) => {
 };
 const cityForLevel = (L: number) => Math.floor((L - 1) / LEVELS_PER_CITY);
 
+// ---- Étoiles (1-3) selon la performance vs l'objectif de score du niveau ----
+const starsForScore = (level: number, finalScore: number): 1 | 2 | 3 => {
+  const target = targetForLevel(level);
+  if (finalScore >= target * 1.75) return 3;
+  if (finalScore >= target * 1.35) return 2;
+  return 1;
+};
+
+// ---- Obstacles "fétiches" 🗿 : nombre + coups pour les casser, selon la position dans la ville ----
+type ObstacleSpec = { count: number; hits: number };
+const obstacleSpecFor = (pos: number): ObstacleSpec | null => {
+  if (pos >= 12) return { count: 4, hits: 3 };
+  if (pos >= 10) return { count: 3, hits: 2 };
+  if (pos >= 7) return { count: 2, hits: 2 };
+  if (pos >= 5) return { count: 1, hits: 1 };
+  return null;
+};
+
 // ---- Fonctions "moteur" pures, hors du composant : ne dépendent que de leurs paramètres ----
 
 const typesArr = (pIdx: number) => PALETTES[pIdx].types;
@@ -273,18 +319,18 @@ const CITY_BACKGROUNDS: (string | null)[] = [
 
 const CITY_NODE_PERCENTS: ({ x: number; y: number }[] | null)[] = [
   [
-    { x: 44.6, y: 28.11 },
-    { x: 53.15, y: 31.43 },
-    { x: 42.56, y: 36.69 },
-    { x: 49.37, y: 42.21 },
-    { x: 56.75, y: 48.83 },
-    { x: 37.82, y: 53.59 },
-    { x: 47.66, y: 61.49 },
-    { x: 64.73, y: 67.78 },
-    { x: 51.54, y: 76.12 },
-    { x: 39.1, y: 83.82 },
-    { x: 45.66, y: 92.86 },
-    { x: 62.1, y: 99.94 },
+    { x: 49.52, y: 38.58 },
+    { x: 46.93, y: 46.29 },
+    { x: 54.86, y: 52.69 },
+    { x: 43.98, y: 57.66 },
+    { x: 50.06, y: 64.65 },
+    { x: 62.38, y: 68.24 },
+    { x: 55.83, y: 75.12 },
+    { x: 43.75, y: 78.89 },
+    { x: 36.78, y: 85.65 },
+    { x: 42.21, y: 92.82 },
+    { x: 53.14, y: 97.67 },
+    { x: 60.53, y: 99.94 },
   ],
   null,
   null,
@@ -298,7 +344,15 @@ const CITY_NODE_PERCENTS: ({ x: number; y: number }[] | null)[] = [
 // Tracé invisible (guide de déplacement) pour Abidjan, en coordonnées 0-100
 // (correspond au viewBox 0 0 100 100 du <svg> superposé sur l'image).
 const ABIDJAN_GUIDE_D =
-  'M 44.60,28.11 Q 41.52,29.90 48.01,30.83 Q 54.49,31.76 55.45,32.69 Q 56.40,33.61 53.54,34.54 Q 50.68,35.47 45.25,36.36 Q 39.81,37.26 38.69,38.19 Q 37.57,39.11 39.66,40.04 Q 41.74,40.97 46.96,41.90 Q 52.17,42.82 55.03,43.75 Q 57.88,44.68 59.50,45.57 Q 61.11,46.47 59.74,47.40 Q 58.36,48.33 54.68,49.25 Q 51.00,50.18 46.39,51.11 Q 41.79,52.03 39.60,52.96 Q 37.41,53.89 36.76,54.78 Q 36.11,55.68 36.37,56.61 Q 36.62,57.54 38.58,58.46 Q 40.54,59.39 43.63,60.32 Q 46.71,61.24 50.77,62.17 Q 54.83,63.10 57.10,64.00 Q 59.38,64.89 61.53,65.82 Q 63.68,66.75 64.29,67.67 Q 64.91,68.60 63.99,69.53 Q 63.07,70.45 61.42,71.38 Q 59.78,72.31 58.18,73.21 Q 56.59,74.10 54.36,75.03 Q 52.12,75.96 48.47,76.88 Q 44.82,77.81 42.98,78.74 Q 41.14,79.67 39.85,80.59 Q 38.56,81.52 38.74,82.42 Q 38.92,83.31 38.41,84.24 Q 37.91,85.17 37.89,86.09 Q 37.86,87.02 37.46,87.95 Q 37.07,88.88 38.49,89.80 Q 39.92,90.73 42.34,91.63 Q 44.75,92.52 47.35,93.45 Q 49.95,94.38 52.15,95.31 Q 54.34,96.23 55.81,97.16 Q 57.27,98.09 59.68,99.01 T 62.10,99.94';
+  'M 49.52,38.58 Q 43.57,40.13 49.90,40.91 Q 56.24,41.69 57.46,42.46 Q 58.67,43.24 56.92,44.05 Q 55.17,44.86 50.68,45.63 Q 46.20,46.41 43.88,47.19 Q 41.57,47.97 41.75,48.77 Q 41.94,49.58 45.04,50.36 Q 48.13,51.14 51.50,51.91 Q 54.86,52.69 55.24,53.50 Q 55.62,54.31 53.47,55.08 Q 51.33,55.86 48.04,56.64 Q 44.76,57.42 42.82,58.22 Q 40.89,59.03 40.95,59.81 Q 41.00,60.59 41.65,61.36 Q 42.30,62.14 44.39,62.92 Q 46.48,63.70 49.70,64.50 Q 52.92,65.31 55.90,66.09 Q 58.87,66.87 60.80,67.64 Q 62.72,68.42 63.29,69.23 Q 63.86,70.04 63.36,70.81 Q 62.86,71.59 61.60,72.37 Q 60.33,73.15 58.58,73.95 Q 56.82,74.76 54.32,75.54 Q 51.82,76.32 49.23,77.09 Q 46.64,77.87 44.45,78.68 Q 42.25,79.49 40.57,80.26 Q 38.89,81.04 38.17,81.82 Q 37.44,82.60 37.15,83.37 Q 36.85,84.15 36.84,84.96 Q 36.83,85.77 36.41,86.54 Q 35.99,87.32 35.41,88.10 Q 34.83,88.88 35.65,89.68 Q 36.46,90.49 38.40,91.27 Q 40.33,92.05 42.37,92.82 Q 44.41,93.60 46.23,94.41 Q 48.05,95.22 49.42,95.99 Q 50.79,96.77 53.61,97.55 Q 56.43,98.33 58.48,99.13 T 60.53,99.94';
+
+// Tracé invisible du bus sur la scène de transition entre villes (coordonnées
+// 0-100, superposé au <svg> par-dessus /maps/transition-fond.png).
+const BUS_TRANSITION_GUIDE_D =
+  'M 25.41,91.16 Q 32.30,89.50 32.82,88.63 Q 33.33,87.75 33.76,86.88 Q 34.20,86.00 34.14,85.13 Q 34.09,84.25 33.91,83.38 Q 33.72,82.50 34.59,81.63 Q 35.45,80.76 36.37,79.88 Q 37.30,79.01 37.97,78.18 Q 38.65,77.35 39.33,76.47 Q 40.01,75.60 40.92,74.72 Q 41.83,73.85 42.85,72.97 Q 43.86,72.10 45.21,71.22 Q 46.56,70.35 48.31,69.48 Q 50.07,68.60 52.19,67.73 Q 54.31,66.85 56.70,65.98 Q 59.08,65.10 61.46,64.27 Q 63.83,63.44 65.56,62.57 Q 67.29,61.69 68.09,60.82 Q 68.90,59.94 68.57,59.07 Q 68.25,58.20 66.65,57.32 Q 65.05,56.45 61.96,55.57 Q 58.87,54.70 53.88,53.82 Q 48.89,52.95 46.33,52.07 T 43.77,51.20';
+
+// Éclair en zigzag pour la scène d'intro du boss d'Abidjan (viewBox 0 0 20 100).
+const BOSS_BOLT_D = 'M 10,0 L 4,22 L 12,26 L 3,50 L 13,54 L 5,78 L 15,80 L 8,100';
 
 // Données de route (tracé + coordonnées des nœuds) pour une ville donnée.
 function cityRoute(ci: number): {
@@ -338,9 +392,15 @@ function percentAtNode(pathEl: SVGPathElement, xi: number, yi: number, total: nu
 
 export default function MaRacinePuzzle() {
   const { user } = useAuth();
+  const router = useRouter();
+  const { soundOn, toggle: toggleSoundPref } = useSound();
+  const { musicOn, toggle: toggleMusicPref } = useMusic();
 
   // ---- Refs "moteur" (source de vérité synchrone pendant la résolution) ----
   const gridRef = useRef<Cell[][]>([]);
+  // Obstacles "fétiches" : liés à la position (r,c) du plateau, pas à une tuile.
+  // Valeur = coups restants pour casser le fétiche sur cette case, null = pas d'obstacle.
+  const obstacleGridRef = useRef<(number | null)[][]>([]);
   const movesRef = useRef(movesForLevel(1));
   const levelRef = useRef(1);
   const scoreRef = useRef(0);
@@ -354,18 +414,50 @@ export default function MaRacinePuzzle() {
   const selectedRef = useRef<Pos | null>(null);
   const paletteRef = useRef(0);
   const highestUnlockedRef = useRef(1);
+  const levelStarsRef = useRef<LevelStars>({});
   const transitionTimerRef = useRef<number | null>(null);
   const livesRef = useRef(5);
   const nextLifeAtRef = useRef<number | null>(null);
   const routePathRefs = useRef<(SVGPathElement | null)[]>([]);
   const walkerIconRef = useRef<HTMLSpanElement | null>(null);
+  const transitionPathRef = useRef<SVGPathElement | null>(null);
+  const transitionBusRef = useRef<HTMLImageElement | null>(null);
+  const transitionSmokeLayerRef = useRef<HTMLDivElement | null>(null);
+  const bgMusicRef = useRef<HTMLAudioElement | null>(null);
+  const busEngineRef = useRef<HTMLAudioElement | null>(null);
+  const hasInteractedRef = useRef(false);
+  const musicTrackIndexRef = useRef(0);
+  const inFeticheMusicRef = useRef(false);
   const pendingNextRef = useRef(0);
 
   // ---- Etat d'affichage (déclenche les re-rendus) ----
   const [currentLevel, setCurrentLevel] = useState(1);
   const [highestUnlocked, setHighestUnlocked] = useState(1);
-  const [viewMode, setViewMode] = useState<'map' | 'play'>('map');
+  const [levelStars, setLevelStars] = useState<LevelStars>({});
+  const [viewMode, setViewMode] = useState<'map' | 'play' | 'profile'>('map');
+  const [coins, setCoins] = useState(0);
+  const [avatarId, setAvatarId] = useState<string | null>(null);
+  const [pseudo, setPseudo] = useState('');
   const [gridView, setGridView] = useState<Cell[][]>([]);
+  const [obstacleView, setObstacleView] = useState<(number | null)[][]>([]);
+  const [boostFx, setBoostFx] = useState<
+    ({ id: number; r: number; c: number } & ({ kind: 'bomb' } | { kind: 'hammer' } | { kind: 'bolt' }))[]
+  >([]);
+  const boostFxIdRef = useRef(0);
+  const [shardTiles, setShardTiles] = useState<
+    { id: number; r: number; c: number; emoji: string; shards: { angle: number; scale: number; rotate: number }[] }[]
+  >([]);
+  const [flashCells, setFlashCells] = useState<{ id: number; r: number; c: number; color: string }[]>(
+    []
+  );
+  const [flinchTiles, setFlinchTiles] = useState<{ id: number; r: number; c: number }[]>([]);
+  const [swapArcTiles, setSwapArcTiles] = useState<{ id: number; r: number; c: number }[]>([]);
+  const [matchPopTiles, setMatchPopTiles] = useState<
+    { id: number; r: number; c: number; combo: boolean }[]
+  >([]);
+  const [floatingScores, setFloatingScores] = useState<
+    { id: number; r: number; c: number; points: number; combo: boolean }[]
+  >([]);
   const [selected, setSelected] = useState<Pos | null>(null);
   const [score, setScore] = useState(0);
   const [collectCount, setCollectCount] = useState(0);
@@ -380,8 +472,17 @@ export default function MaRacinePuzzle() {
   const [showTutorial, setShowTutorial] = useState(true);
   const [showFailureModal, setShowFailureModal] = useState(false);
   const [showVictoryModal, setShowVictoryModal] = useState(false);
+  const [lastCoinsEarned, setLastCoinsEarned] = useState(0);
+  const [lastEarnedStars, setLastEarnedStars] = useState(0);
+  const [coinsCountUp, setCoinsCountUp] = useState(0);
+  const [confetti, setConfetti] = useState<
+    { id: number; left: number; color: string; delay: number; duration: number; drift: number }[]
+  >([]);
   const [showDailyBonus, setShowDailyBonus] = useState(false);
   const [transitionLevel, setTransitionLevel] = useState<number | null>(null);
+  const [showBossIntro, setShowBossIntro] = useState(false);
+  const [bossBtnVisible, setBossBtnVisible] = useState(false);
+  const [bossLightning, setBossLightning] = useState<{ id: number; x: number } | null>(null);
   const [lives, setLives] = useState(5);
   const [nextLifeAt, setNextLifeAt] = useState<number | null>(null);
   const [showNoLives, setShowNoLives] = useState(false);
@@ -395,20 +496,239 @@ export default function MaRacinePuzzle() {
 
   const syncGrid = () => setGridView(gridRef.current.map((row) => [...row]));
 
+  // Persiste les compteurs de boosters (bombe/marteau/éclair/mélange) dans Firestore,
+  // pour qu'un bonus gagné (ex: bonus quotidien) survive au changement/relance de niveau.
+  const persistBoosters = () => {
+    if (!user) return;
+    saveBoosters(user.uid, {
+      bombCount: bombCountRef.current,
+      hammerCount: hammerCountRef.current,
+      boltCount: boltCountRef.current,
+      shuffleCount: shuffleCountRef.current,
+    }).catch(() => {});
+  };
+  const syncObstacles = () => setObstacleView(obstacleGridRef.current.map((row) => [...row]));
+
+  // Effets visuels des boosters (bombe/marteau/éclair) : ajoutés au déclenchement,
+  // retirés tout seuls après leur durée d'animation — ne bloque jamais la logique
+  // de jeu (cascade/vérification de victoire), qui continue en parallèle.
+  const spawnBoostFx = (
+    fx: { kind: 'bomb' | 'hammer' | 'bolt'; r: number; c: number },
+    durationMs: number
+  ) => {
+    const id = ++boostFxIdRef.current;
+    setBoostFx((prev) => [...prev, { ...fx, id }]);
+    window.setTimeout(() => {
+      setBoostFx((prev) => prev.filter((f) => f.id !== id));
+    }, durationMs);
+  };
+
+  // Mini-répliques de l'emoji réel d'une tuile détruite, giclant en éventail
+  // avec une légère chute avant de s'effacer.
+  const spawnShardTile = (
+    r: number,
+    c: number,
+    emoji: string,
+    durationMs: number,
+    countRange: [number, number] = [2, 3]
+  ) => {
+    const id = ++boostFxIdRef.current;
+    const [minCount, maxCount] = countRange;
+    const count = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
+    const shards = Array.from({ length: count }, () => ({
+      angle: Math.random() * 360,
+      scale: 0.6 + Math.random() * 0.3,
+      rotate: Math.random() * 360,
+    }));
+    setShardTiles((prev) => [...prev, { id, r, c, emoji, shards }]);
+    window.setTimeout(() => {
+      setShardTiles((prev) => prev.filter((s) => s.id !== id));
+    }, durationMs);
+  };
+
+  // Flash de couleur (halo radial) teinté avec la couleur du type majoritairement détruit.
+  const spawnFlash = (r: number, c: number, color: string, durationMs: number) => {
+    const id = ++boostFxIdRef.current;
+    setFlashCells((prev) => [...prev, { id, r, c, color }]);
+    window.setTimeout(() => {
+      setFlashCells((prev) => prev.filter((f) => f.id !== id));
+    }, durationMs);
+  };
+
+  // Léger tressaillement d'une tuile adjacente non détruite, pour vendre l'impact de zone.
+  const spawnFlinch = (r: number, c: number, durationMs: number) => {
+    const id = ++boostFxIdRef.current;
+    setFlinchTiles((prev) => [...prev, { id, r, c }]);
+    window.setTimeout(() => {
+      setFlinchTiles((prev) => prev.filter((f) => f.id !== id));
+    }, durationMs);
+  };
+
+  // Léger arc en Z sur les deux tuiles échangées, pour que le swap semble
+  // passer par-dessus le plateau plutôt qu'à plat.
+  const spawnSwapArc = (r: number, c: number, durationMs: number) => {
+    const id = ++boostFxIdRef.current;
+    setSwapArcTiles((prev) => [...prev, { id, r, c }]);
+    window.setTimeout(() => {
+      setSwapArcTiles((prev) => prev.filter((s) => s.id !== id));
+    }, durationMs);
+  };
+
+  // Pop d'une tuile matchée juste avant qu'elle ne soit vidée (encore visible à cet instant).
+  const spawnMatchPop = (r: number, c: number, combo: boolean, durationMs: number) => {
+    const id = ++boostFxIdRef.current;
+    setMatchPopTiles((prev) => [...prev, { id, r, c, combo }]);
+    window.setTimeout(() => {
+      setMatchPopTiles((prev) => prev.filter((p) => p.id !== id));
+    }, durationMs);
+  };
+
+  // Texte flottant "+N" centré sur le groupe matché, monte en s'estompant.
+  const spawnFloatingScore = (r: number, c: number, points: number, combo: boolean, durationMs: number) => {
+    const id = ++boostFxIdRef.current;
+    setFloatingScores((prev) => [...prev, { id, r, c, points, combo }]);
+    window.setTimeout(() => {
+      setFloatingScores((prev) => prev.filter((f) => f.id !== id));
+    }, durationMs);
+  };
+
+  // Déclenche les éclats/flash/tressaillement d'un booster à partir des tuiles
+  // réellement détruites (avec leur type, pour l'emoji et la couleur de flash).
+  const triggerBoosterVisuals = (
+    destroyed: { r: number; c: number; val: number }[],
+    typesForFx: TileType[],
+    centerR: number,
+    centerC: number,
+    rows: number,
+    cols: number,
+    kind: 'bomb' | 'hammer' | 'bolt'
+  ) => {
+    if (destroyed.length === 0) return;
+
+    destroyed.forEach(({ r, c, val }) => {
+      const emoji = typesForFx[val]?.emoji ?? '✨';
+      spawnShardTile(r, c, emoji, 580);
+    });
+
+    const counts = new Map<number, number>();
+    destroyed.forEach(({ val }) => counts.set(val, (counts.get(val) ?? 0) + 1));
+    let majorityVal = destroyed[0].val;
+    let best = 0;
+    counts.forEach((n, val) => {
+      if (n > best) {
+        best = n;
+        majorityVal = val;
+      }
+    });
+    spawnFlash(centerR, centerC, typesForFx[majorityVal]?.bg ?? '#ffe29a', 200);
+
+    const destroyedSet = new Set(destroyed.map((d) => `${d.r},${d.c}`));
+    const flinchCandidates: { r: number; c: number }[] = [];
+    if (kind === 'bomb') {
+      for (let rr = centerR - 2; rr <= centerR + 2; rr++) {
+        for (let cc = centerC - 2; cc <= centerC + 2; cc++) {
+          if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
+          const onRing = Math.max(Math.abs(rr - centerR), Math.abs(cc - centerC)) === 2;
+          if (onRing && !destroyedSet.has(`${rr},${cc}`)) flinchCandidates.push({ r: rr, c: cc });
+        }
+      }
+    } else if (kind === 'hammer') {
+      for (let rr = centerR - 1; rr <= centerR + 1; rr++) {
+        for (let cc = centerC - 1; cc <= centerC + 1; cc++) {
+          if (rr === centerR && cc === centerC) continue;
+          if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
+          if (!destroyedSet.has(`${rr},${cc}`)) flinchCandidates.push({ r: rr, c: cc });
+        }
+      }
+    } else {
+      for (let rr = 0; rr < rows; rr++) {
+        for (let cc = 0; cc < cols; cc++) {
+          if (destroyedSet.has(`${rr},${cc}`)) continue;
+          if (Math.abs(rr - centerR) === 1 || Math.abs(cc - centerC) === 1) {
+            flinchCandidates.push({ r: rr, c: cc });
+          }
+        }
+      }
+    }
+    flinchCandidates.forEach(({ r, c }) => spawnFlinch(r, c, 120));
+  };
+
+  // Construit un tracé en zigzag (coordonnées en unités de cellule de grille)
+  // pour l'éclair, le long d'un axe (horizontal = ligne, vertical = colonne).
+  const buildZigzag = (to: number, cross: number, horizontal: boolean): string => {
+    const segments = Math.max(4, Math.round(to * 2));
+    const amplitude = 0.14;
+    const pts: string[] = [];
+    for (let i = 0; i <= segments; i++) {
+      const main = (to / segments) * i;
+      const off = i === 0 || i === segments ? 0 : i % 2 === 0 ? -amplitude : amplitude;
+      const x = horizontal ? main : cross + off;
+      const y = horizontal ? cross + off : main;
+      pts.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(2)},${y.toFixed(2)}`);
+    }
+    return pts.join(' ');
+  };
+
+  // Décrémente le fétiche sur (r,c) si son contenu vient de disparaître ; le retire à 0 coup.
+  const damageObstacle = (r: number, c: number) => {
+    const row = obstacleGridRef.current[r];
+    if (!row) return;
+    const hits = row[c];
+    if (hits === null || hits <= 0) return;
+    row[c] = hits - 1 > 0 ? hits - 1 : null;
+  };
+
+  const obstaclesRemaining = () =>
+    obstacleGridRef.current.reduce((acc, row) => acc + row.filter((v) => v !== null).length, 0);
+
   const resolveCascade = async (pIdx: number) => {
     const activeCount = activeTypeCountFor(posInCityFor(levelRef.current));
+    const typesForFx = typesArr(pIdx).slice(0, activeCount);
     let matches = findMatches(gridRef.current);
     let safety = 0;
     while (matches.size > 0 && safety < 6) {
-      scoreRef.current += matches.size * 10;
-      setScore(scoreRef.current);
+      const isCombo = safety >= 1;
+      playSound('match.mp3');
+      if (isCombo) playSound('combo.mp3');
+
+      // Capture les tuiles avant de les vider : leur émoji est encore affiché à cet
+      // instant, nécessaire pour les éclats, le pop et le flash de combo.
+      const matchedCells: { r: number; c: number; val: number }[] = [];
       matches.forEach((key) => {
         const [rr, cc] = key.split(',').map(Number);
-        if (gridRef.current[rr][cc] === 0) collectRef.current += 1;
-        gridRef.current[rr][cc] = null;
+        const val = gridRef.current[rr][cc];
+        if (val !== null) matchedCells.push({ r: rr, c: cc, val });
+      });
+
+      scoreRef.current += matches.size * 10;
+      setScore(scoreRef.current);
+
+      matchedCells.forEach(({ r, c, val }) => {
+        spawnMatchPop(r, c, isCombo, 260);
+        const emoji = typesForFx[val]?.emoji ?? '✨';
+        spawnShardTile(r, c, emoji, 500, [1, 2]);
+      });
+
+      if (matchedCells.length > 0) {
+        const centerR = matchedCells.reduce((acc, m) => acc + m.r, 0) / matchedCells.length;
+        const centerC = matchedCells.reduce((acc, m) => acc + m.c, 0) / matchedCells.length;
+        spawnFloatingScore(centerR, centerC, matches.size * 10, isCombo, 700);
+        if (isCombo) {
+          spawnFlash(Math.round(centerR), Math.round(centerC), '#ffd76b', 220);
+        }
+      }
+
+      // Laisse le pop se voir avant que la case ne change de contenu.
+      await sleep(220);
+
+      matchedCells.forEach(({ r, c, val }) => {
+        if (val === 0) collectRef.current += 1;
+        gridRef.current[r][c] = null;
+        damageObstacle(r, c);
       });
       setCollectCount(collectRef.current);
       syncGrid();
+      syncObstacles();
       await sleep(150);
       applyGravity(gridRef.current, pIdx, activeCount);
       syncGrid();
@@ -419,7 +739,26 @@ export default function MaRacinePuzzle() {
   };
 
   const handleVictory = () => {
+    playSound('victoire.mp3');
+    resumePlaylistIfNeeded();
     setShowVictoryModal(true);
+
+    // Étoiles : ne jamais diminuer un score déjà acquis pour ce niveau.
+    const earnedStars = starsForScore(levelRef.current, scoreRef.current);
+    setLastEarnedStars(earnedStars);
+    const prevStars = levelStarsRef.current[levelRef.current] ?? 0;
+    if (earnedStars > prevStars) {
+      levelStarsRef.current = { ...levelStarsRef.current, [levelRef.current]: earnedStars };
+      setLevelStars(levelStarsRef.current);
+      if (user) {
+        saveLevelStars(user.uid, levelRef.current, earnedStars).catch(() => {});
+      }
+    }
+
+    // Première réussite de ce niveau : même condition que celle qui débloque le
+    // niveau suivant ci-dessous, capturée avant l'incrémentation de highestUnlockedRef.
+    const isFirstClear = levelRef.current >= highestUnlockedRef.current;
+
     if (levelRef.current === highestUnlockedRef.current && levelRef.current < LEVELS) {
       highestUnlockedRef.current += 1;
       setHighestUnlocked(highestUnlockedRef.current);
@@ -427,23 +766,40 @@ export default function MaRacinePuzzle() {
         saveHighestUnlocked(user.uid, highestUnlockedRef.current).catch(() => {});
       }
     }
+
+    // Récompense en pièces : uniquement à la toute première réussite du niveau,
+    // jamais en rejouant un niveau déjà battu.
+    const coinsEarned = isFirstClear ? earnedStars * 10 : 0;
+    setLastCoinsEarned(coinsEarned);
+    setCoins((prev) => {
+      const next = prev + coinsEarned;
+      if (user) saveCoins(user.uid, next).catch(() => {});
+      return next;
+    });
   };
 
   const checkLevelEnd = () => {
     const pos = posInCityFor(levelRef.current);
     const type = levelTypeFor(pos);
-    if (type === 'collecte') {
-      if (collectRef.current >= collectTargetFor(pos)) handleVictory();
-      else if (movesRef.current <= 0) setShowFailureModal(true);
-    } else {
-      if (scoreRef.current >= targetForLevel(levelRef.current)) handleVictory();
-      else if (movesRef.current <= 0) setShowFailureModal(true);
+    const objectiveReached =
+      type === 'collecte'
+        ? collectRef.current >= collectTargetFor(pos)
+        : scoreRef.current >= targetForLevel(levelRef.current);
+    // Avec des fétiches actifs, la victoire exige l'objectif existant ET tous les fétiches cassés.
+    if (objectiveReached && obstaclesRemaining() === 0) {
+      handleVictory();
+    } else if (movesRef.current <= 0) {
+      playSound('echec.mp3');
+      resumePlaylistIfNeeded();
+      setShowFailureModal(true);
     }
   };
 
   const swapAndResolve = async (a: Pos, b: Pos, pIdx: number) => {
     busyRef.current = true;
     swapCells(gridRef.current, a, b);
+    spawnSwapArc(a.r, a.c, 280);
+    spawnSwapArc(b.r, b.c, 280);
     syncGrid();
     await sleep(140);
     const matches = findMatches(gridRef.current);
@@ -461,25 +817,34 @@ export default function MaRacinePuzzle() {
   };
 
   const triggerBomb = async (r: number, c: number, pIdx: number) => {
+    playSound('booster.mp3');
+    spawnBoostFx({ kind: 'bomb', r, c }, 500);
     busyRef.current = true;
     const activeCount = activeTypeCountFor(posInCityFor(levelRef.current));
+    const typesForFx = typesArr(pIdx).slice(0, activeCount);
     const g = gridRef.current;
     const rows = g.length;
     const cols = g[0].length;
     let cleared = 0;
+    const destroyed: { r: number; c: number; val: number }[] = [];
     for (let rr = r - 1; rr <= r + 1; rr++) {
       for (let cc = c - 1; cc <= c + 1; cc++) {
         if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) {
-          if (g[rr][cc] === 0) collectRef.current += 1;
+          const val = g[rr][cc];
+          if (val !== null) destroyed.push({ r: rr, c: cc, val });
+          if (val === 0) collectRef.current += 1;
           g[rr][cc] = null;
+          damageObstacle(rr, cc);
           cleared++;
         }
       }
     }
+    triggerBoosterVisuals(destroyed, typesForFx, r, c, rows, cols, 'bomb');
     setCollectCount(collectRef.current);
     scoreRef.current += cleared * 10;
     setScore(scoreRef.current);
     syncGrid();
+    syncObstacles();
     await sleep(200);
     applyGravity(gridRef.current, pIdx, activeCount);
     syncGrid();
@@ -490,19 +855,29 @@ export default function MaRacinePuzzle() {
   };
 
   const triggerHammer = async (r: number, c: number, pIdx: number) => {
+    playSound('booster.mp3');
+    spawnBoostFx({ kind: 'hammer', r, c }, 500);
     busyRef.current = true;
     const activeCount = activeTypeCountFor(posInCityFor(levelRef.current));
+    const typesForFx = typesArr(pIdx).slice(0, activeCount);
     const g = gridRef.current;
+    const rows = g.length;
+    const cols = g[0].length;
     let cleared = 0;
+    const destroyed: { r: number; c: number; val: number }[] = [];
     if (g[r][c] !== null) {
+      destroyed.push({ r, c, val: g[r][c]! });
       if (g[r][c] === 0) collectRef.current += 1;
       g[r][c] = null;
+      damageObstacle(r, c);
       cleared = 1;
     }
+    triggerBoosterVisuals(destroyed, typesForFx, r, c, rows, cols, 'hammer');
     setCollectCount(collectRef.current);
     scoreRef.current += cleared * 10;
     setScore(scoreRef.current);
     syncGrid();
+    syncObstacles();
     await sleep(200);
     applyGravity(gridRef.current, pIdx, activeCount);
     syncGrid();
@@ -513,30 +888,40 @@ export default function MaRacinePuzzle() {
   };
 
   const triggerBolt = async (r: number, c: number, pIdx: number) => {
+    playSound('booster.mp3');
+    spawnBoostFx({ kind: 'bolt', r, c }, 250);
     busyRef.current = true;
     const activeCount = activeTypeCountFor(posInCityFor(levelRef.current));
+    const typesForFx = typesArr(pIdx).slice(0, activeCount);
     const g = gridRef.current;
     const rows = g.length;
     const cols = g[0].length;
     let cleared = 0;
+    const destroyed: { r: number; c: number; val: number }[] = [];
     for (let rr = 0; rr < rows; rr++) {
       if (g[rr][c] !== null) {
+        destroyed.push({ r: rr, c, val: g[rr][c]! });
         if (g[rr][c] === 0) collectRef.current += 1;
         g[rr][c] = null;
+        damageObstacle(rr, c);
         cleared++;
       }
     }
     for (let cc = 0; cc < cols; cc++) {
       if (cc !== c && g[r][cc] !== null) {
+        destroyed.push({ r, c: cc, val: g[r][cc]! });
         if (g[r][cc] === 0) collectRef.current += 1;
         g[r][cc] = null;
+        damageObstacle(r, cc);
         cleared++;
       }
     }
+    triggerBoosterVisuals(destroyed, typesForFx, r, c, rows, cols, 'bolt');
     setCollectCount(collectRef.current);
     scoreRef.current += cleared * 10;
     setScore(scoreRef.current);
     syncGrid();
+    syncObstacles();
     await sleep(200);
     applyGravity(gridRef.current, pIdx, activeCount);
     syncGrid();
@@ -557,14 +942,17 @@ export default function MaRacinePuzzle() {
       if (booster === 'bomb') {
         bombCountRef.current -= 1;
         setBombCount(bombCountRef.current);
+        persistBoosters();
         await triggerBomb(r, c, pIdx);
       } else if (booster === 'hammer') {
         hammerCountRef.current -= 1;
         setHammerCount(hammerCountRef.current);
+        persistBoosters();
         await triggerHammer(r, c, pIdx);
       } else {
         boltCountRef.current -= 1;
         setBoltCount(boltCountRef.current);
+        persistBoosters();
         await triggerBolt(r, c, pIdx);
       }
       return;
@@ -610,8 +998,10 @@ export default function MaRacinePuzzle() {
   };
   const triggerShuffle = () => {
     if (busyRef.current || shuffleCountRef.current <= 0 || movesRef.current <= 0) return;
+    playSound('booster.mp3');
     shuffleCountRef.current -= 1;
     setShuffleCount(shuffleCountRef.current);
+    persistBoosters();
     const g = gridRef.current;
     let attempts = 0;
     do {
@@ -646,6 +1036,15 @@ export default function MaRacinePuzzle() {
     if (L > highestUnlockedRef.current) return;
     const safeL = Math.max(1, Math.min(LEVELS, L));
     const pos = posInCityFor(safeL);
+
+    // Musique : bascule sur la piste fétiche pour les niveaux à obstacles
+    // (mêmes conditions que obstacleSpecFor), reprend la playlist sinon.
+    if (pos >= 5) {
+      if (!inFeticheMusicRef.current) startFeticheMusic();
+    } else {
+      resumePlaylistIfNeeded();
+    }
+
     const pIdx = cityForLevel(safeL);
     const activeCount = activeTypeCountFor(pos);
     const size = gridSizeFor(pos);
@@ -654,18 +1053,20 @@ export default function MaRacinePuzzle() {
     setCurrentLevel(safeL);
     paletteRef.current = pIdx;
     movesRef.current = mv;
-    bombCountRef.current = 1;
-    hammerCountRef.current = 1;
-    boltCountRef.current = 1;
-    shuffleCountRef.current = 1;
+    // max(1, valeur persistée) : un booster gagné (bonus quotidien, achat...) reste
+    // disponible d'un niveau à l'autre, sans jamais descendre sous l'allocation gratuite de 1.
+    bombCountRef.current = Math.max(1, bombCountRef.current);
+    hammerCountRef.current = Math.max(1, hammerCountRef.current);
+    boltCountRef.current = Math.max(1, boltCountRef.current);
+    shuffleCountRef.current = Math.max(1, shuffleCountRef.current);
     selectedRef.current = null;
     busyRef.current = false;
     pendingBoosterRef.current = null;
     setMoves(mv);
-    setBombCount(1);
-    setHammerCount(1);
-    setBoltCount(1);
-    setShuffleCount(1);
+    setBombCount(bombCountRef.current);
+    setHammerCount(hammerCountRef.current);
+    setBoltCount(boltCountRef.current);
+    setShuffleCount(shuffleCountRef.current);
     setSelected(null);
     scoreRef.current = 0;
     collectRef.current = 0;
@@ -676,6 +1077,28 @@ export default function MaRacinePuzzle() {
     setShowVictoryModal(false);
     gridRef.current = createGrid(pIdx, size, size, activeCount);
     syncGrid();
+
+    // Fétiches 🗿 : placés aléatoirement sur des cases distinctes selon la table de difficulté.
+    const obstacleSpec = obstacleSpecFor(pos);
+    const newObstacles: (number | null)[][] = Array.from({ length: size }, () =>
+      Array<number | null>(size).fill(null)
+    );
+    if (obstacleSpec) {
+      const cells: Pos[] = [];
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) cells.push({ r, c });
+      }
+      for (let i = cells.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cells[i], cells[j]] = [cells[j], cells[i]];
+      }
+      for (let i = 0; i < obstacleSpec.count && i < cells.length; i++) {
+        const { r, c } = cells[i];
+        newObstacles[r][c] = obstacleSpec.hits;
+      }
+    }
+    obstacleGridRef.current = newObstacles;
+    syncObstacles();
   };
 
   // Initialise le niveau au montage. React 19 préfère éviter le setState en
@@ -696,9 +1119,26 @@ export default function MaRacinePuzzle() {
       if (!user) return;
       try {
         await ensureUserDoc(user);
+
+        // Avatar + pseudo obligatoires : redirige avant de charger/afficher le reste
+        // si le joueur (nouveau ou compte existant) n'a jamais fait ce choix.
+        const profile = await loadProfile(user);
+        if (!profile.avatarId || !profile.pseudo) {
+          if (!cancelled) router.replace('/choix-avatar');
+          return;
+        }
+        if (!cancelled) {
+          setAvatarId(profile.avatarId);
+          setPseudo(profile.pseudo);
+        }
+
         const saved = await loadProgress(user);
         const livesState = await loadLives(user);
+        const stars = await loadLevelStars(user);
+        const boosters = await loadBoosters(user);
+        const coinsSaved = await loadCoins(user);
         if (!cancelled) {
+          setCoins(coinsSaved);
           highestUnlockedRef.current = saved;
           setHighestUnlocked(saved);
           livesRef.current = livesState.lives;
@@ -706,6 +1146,16 @@ export default function MaRacinePuzzle() {
           setLives(livesState.lives);
           setNextLifeAt(livesState.nextLifeAt);
           setMapUnlocked(saved);
+          levelStarsRef.current = stars;
+          setLevelStars(stars);
+          bombCountRef.current = Math.max(1, boosters.bombCount);
+          hammerCountRef.current = Math.max(1, boosters.hammerCount);
+          boltCountRef.current = Math.max(1, boosters.boltCount);
+          shuffleCountRef.current = Math.max(1, boosters.shuffleCount);
+          setBombCount(bombCountRef.current);
+          setHammerCount(hammerCountRef.current);
+          setBoltCount(boltCountRef.current);
+          setShuffleCount(shuffleCountRef.current);
           applyRecharge();
         }
       } catch {
@@ -728,6 +1178,147 @@ export default function MaRacinePuzzle() {
     };
   }, []);
 
+  // Musique de fond : volume fixé une fois au montage.
+  useEffect(() => {
+    if (bgMusicRef.current) bgMusicRef.current.volume = 0.35;
+  }, []);
+
+  // Joue/coupe l'audio actuellement chargé selon isMusicOn() ; ne fait rien
+  // tant que l'utilisateur n'a pas encore interagi avec la page (politique
+  // autoplay des navigateurs). Ne change jamais la piste elle-même.
+  const tryPlayCurrentMusic = () => {
+    const audio = bgMusicRef.current;
+    if (!audio || !hasInteractedRef.current) return;
+    if (isMusicOn()) {
+      audio.muted = false;
+      if (audio.paused) audio.play().catch(() => {});
+    } else {
+      audio.pause();
+    }
+  };
+
+  // Charge la piste `index` de la playlist normale (pas de loop : onEnded
+  // enchaîne la suivante) et tente de la jouer.
+  const startPlaylistTrack = (index: number) => {
+    const audio = bgMusicRef.current;
+    if (!audio) return;
+    const normalized =
+      ((index % MUSIC_TRACKS.length) + MUSIC_TRACKS.length) % MUSIC_TRACKS.length;
+    musicTrackIndexRef.current = normalized;
+    inFeticheMusicRef.current = false;
+    audio.loop = false;
+    audio.src = MUSIC_TRACKS[normalized];
+    tryPlayCurrentMusic();
+  };
+
+  // Bascule sur la piste fétiche (obstacles), en boucle sur elle-même.
+  const startFeticheMusic = () => {
+    const audio = bgMusicRef.current;
+    if (!audio) return;
+    inFeticheMusicRef.current = true;
+    audio.loop = true;
+    audio.src = FETICHE_TRACK;
+    tryPlayCurrentMusic();
+  };
+
+  // À la sortie d'un niveau à fétiches (victoire/échec/retour carte) :
+  // reprend la playlist normale là où l'index en était.
+  const resumePlaylistIfNeeded = () => {
+    if (inFeticheMusicRef.current) startPlaylistTrack(musicTrackIndexRef.current);
+  };
+
+  // Playlist normale : à la fin d'une piste, enchaîne la suivante (boucle sur
+  // les 4 pistes, pas sur un seul fichier). Ne se déclenche jamais pour la
+  // piste fétiche (loop=true empêche l'événement 'ended' de se produire).
+  const handleMusicEnded = () => {
+    startPlaylistTrack(musicTrackIndexRef.current + 1);
+  };
+
+  // Bruit de moteur du bus pendant la scène de transition entre villes :
+  // effet sonore (isSoundOn()), pas de musique de fond, élément <audio> dédié.
+  const startBusEngineSound = () => {
+    const audio = busEngineRef.current;
+    if (!audio || !hasInteractedRef.current || !isSoundOn()) return;
+    audio.muted = false;
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+  };
+
+  const stopBusEngineSound = () => {
+    const audio = busEngineRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+  };
+
+  // Démarre la musique au tout premier clic/tap n'importe où dans l'app
+  // (contournement de la politique autoplay) — listener unique, retiré après
+  // son premier déclenchement.
+  useEffect(() => {
+    const onFirstInteraction = () => {
+      hasInteractedRef.current = true;
+      tryPlayCurrentMusic();
+      window.removeEventListener('click', onFirstInteraction);
+      window.removeEventListener('touchstart', onFirstInteraction);
+    };
+    window.addEventListener('click', onFirstInteraction);
+    window.addEventListener('touchstart', onFirstInteraction);
+    startPlaylistTrack(0);
+    return () => {
+      window.removeEventListener('click', onFirstInteraction);
+      window.removeEventListener('touchstart', onFirstInteraction);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Coupe/reprend immédiatement la musique quand la préférence musique change
+  // (indépendante des effets sonores : soundOn n'entre pas en jeu ici).
+  useEffect(() => {
+    tryPlayCurrentMusic();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [musicOn]);
+
+  // Modale de victoire : confettis + compteur de pièces animé, générés une seule
+  // fois à l'ouverture, nettoyés à la fermeture ou au démontage.
+  useEffect(() => {
+    if (!showVictoryModal) {
+      setConfetti([]);
+      setCoinsCountUp(0);
+      return;
+    }
+    const colors = ['#e0472b', '#ffb627', '#2ca9d1', '#5aa84f', '#b8622b'];
+    const pieces = Array.from({ length: 20 + Math.floor(Math.random() * 6) }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      delay: Math.random() * 300,
+      duration: 1800 + Math.random() * 400,
+      drift: (Math.random() - 0.5) * 40,
+    }));
+    setConfetti(pieces);
+    const confettiClearTimer = window.setTimeout(() => setConfetti([]), 2600);
+
+    setCoinsCountUp(0);
+    let countUpRaf = 0;
+    const countUpStartTimer = window.setTimeout(() => {
+      const total = lastCoinsEarned;
+      const start = performance.now();
+      const durationMs = 600;
+      const step = (nowMs: number) => {
+        const t = Math.min(1, (nowMs - start) / durationMs);
+        setCoinsCountUp(Math.round(total * t));
+        if (t < 1) countUpRaf = requestAnimationFrame(step);
+      };
+      countUpRaf = requestAnimationFrame(step);
+    }, 900);
+
+    return () => {
+      window.clearTimeout(confettiClearTimer);
+      window.clearTimeout(countUpStartTimer);
+      cancelAnimationFrame(countUpRaf);
+    };
+  }, [showVictoryModal, lastCoinsEarned]);
+
   const formatRemaining = (ms: number) => {
     const totalSec = Math.max(0, Math.ceil(ms / 1000));
     const m = Math.floor(totalSec / 60);
@@ -738,6 +1329,7 @@ export default function MaRacinePuzzle() {
   const applyRecharge = () => {
     const nowMs = Date.now();
     let l = livesRef.current;
+    const before = l;
     let next = nextLifeAtRef.current;
     if (l >= 5) {
       if (next !== null) {
@@ -753,6 +1345,8 @@ export default function MaRacinePuzzle() {
       l += 1;
       t += REFILL_MS;
     }
+    // Une seule lecture même si la boucle de rattrapage a ajouté plusieurs vies d'un coup.
+    if (l > before) playSound('vie-gagnee.mp3');
     const newNext = l >= 5 ? null : t;
     livesRef.current = l;
     nextLifeAtRef.current = newNext;
@@ -762,6 +1356,7 @@ export default function MaRacinePuzzle() {
   };
 
   const consumeLife = () => {
+    if (livesRef.current > 0) playSound('vie-perdue.mp3');
     const wasFull = livesRef.current >= 5;
     const newLives = Math.max(0, livesRef.current - 1);
     let next = nextLifeAtRef.current;
@@ -774,6 +1369,7 @@ export default function MaRacinePuzzle() {
   };
 
   const addLife = () => {
+    playSound('vie-gagnee.mp3');
     const newLives = Math.min(5, livesRef.current + 1);
     const next = newLives >= 5 ? null : nextLifeAtRef.current;
     livesRef.current = newLives;
@@ -785,6 +1381,7 @@ export default function MaRacinePuzzle() {
   };
 
   const retryLevel = () => {
+    playSound('clic.mp3');
     if (livesRef.current <= 0) {
       setShowNoLives(true);
       return;
@@ -872,6 +1469,64 @@ export default function MaRacinePuzzle() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walker]);
 
+  // Animation du bus + fumée sur la scène de transition entre villes.
+  useEffect(() => {
+    if (transitionLevel === null) return;
+    const pathEl = transitionPathRef.current;
+    const busEl = transitionBusRef.current;
+    const smokeLayer = transitionSmokeLayerRef.current;
+    if (!pathEl || !busEl) return;
+
+    const total = pathEl.getTotalLength();
+    const duration = 11500; // ~11-12 s : le trajet doit être visible, pas un survol.
+    const backwardOffset = total * 0.04;
+    const start = performance.now();
+    const easeInOut = (t: number) =>
+      t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+    let raf = 0;
+    const step = (nowMs: number) => {
+      const t = Math.min(1, (nowMs - start) / duration);
+      const eased = easeInOut(t);
+      const pt = pathEl.getPointAtLength(eased * total);
+      const scale = 1 - 0.55 * eased; // 1.0 (départ) -> 0.45 (arrivée, effet de perspective)
+      busEl.style.left = `${pt.x}%`;
+      busEl.style.top = `${pt.y}%`;
+      busEl.style.transform = `translate(-50%, -50%) scale(${scale})`;
+      if (t < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+
+    // Fumée : un rond toutes les ~220ms, légèrement en arrière du bus sur le tracé.
+    const smokeTimers: number[] = [];
+    const smokeInterval = window.setInterval(() => {
+      const t = Math.min(1, (performance.now() - start) / duration);
+      if (t >= 1 || !smokeLayer) return;
+      const dist = easeInOut(t) * total;
+      const pt = pathEl.getPointAtLength(Math.max(0, dist - backwardOffset));
+      const size = 8 + Math.random() * 6;
+      const smoke = document.createElement('span');
+      smoke.className = styles.transitionSmoke;
+      smoke.style.width = `${size}px`;
+      smoke.style.height = `${size}px`;
+      smoke.style.marginLeft = `${-size / 2}px`;
+      smoke.style.marginTop = `${-size / 2}px`;
+      smoke.style.left = `${pt.x}%`;
+      smoke.style.top = `${pt.y}%`;
+      smoke.style.setProperty('--smoke-drift-x', `${(Math.random() - 0.5) * 10}px`);
+      smoke.style.setProperty('--smoke-drift-y', `${-4 - Math.random() * 6}px`);
+      smokeLayer.appendChild(smoke);
+      smokeTimers.push(window.setTimeout(() => smoke.remove(), 700));
+    }, 220);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearInterval(smokeInterval);
+      smokeTimers.forEach((id) => window.clearTimeout(id));
+      if (smokeLayer) smokeLayer.innerHTML = '';
+    };
+  }, [transitionLevel]);
+
   const continueWithMoves = (extra: number) => {
     movesRef.current += extra;
     setMoves(movesRef.current);
@@ -879,6 +1534,7 @@ export default function MaRacinePuzzle() {
   };
 
   const goToLevel = (level: number) => {
+    playSound('clic.mp3');
     if (level === levelRef.current && gridRef.current.length > 0) {
       setViewMode('play');
       return;
@@ -893,31 +1549,107 @@ export default function MaRacinePuzzle() {
   };
 
   const goNextLevel = () => {
+    playSound('clic.mp3');
+    if (currentLevel >= LEVELS) {
+      // Dernier niveau du jeu (96) : pas de niveau suivant, pas d'animation à
+      // déclencher (sinon walker.to viserait l'index 12 d'un tableau de 12
+      // nœuds, 0-11). On reste simplement sur la modale de victoire.
+      return;
+    }
     const next = Math.min(LEVELS, currentLevel + 1);
     setShowVictoryModal(false);
     pendingNextRef.current = next;
+
+    if (next === 12 && cityForLevel(currentLevel) === 0) {
+      // Scène d'intro dramatique avant le boss d'Abidjan : remplace la
+      // transition normale, bloque commitNext() jusqu'au clic "Commencer".
+      if (!inFeticheMusicRef.current) startFeticheMusic();
+      setShowBossIntro(true);
+      return;
+    }
+
     const nextCity = cityForLevel(next);
     const currentCity = cityForLevel(currentLevel);
     if (nextCity === currentCity) {
       // Même ville : marcheur 🚶🏾 le long de la route SVG réelle.
       const pos = posInCityFor(currentLevel);
+      playSound('transition-pas.mp3');
       setWalker({ cityIndex: currentCity, from: pos - 1, to: pos });
       setViewMode('map');
     } else {
       // Changement de ville : carte de transition bus.
       setTransitionLevel(next);
+      startBusEngineSound();
       transitionTimerRef.current = window.setTimeout(() => {
+        stopBusEngineSound();
         setTransitionLevel(null);
         commitNext();
-      }, 1200);
+      }, 15000);
     }
   };
 
+  const startBossIntroLevel = () => {
+    playSound('clic.mp3');
+    setShowBossIntro(false);
+    commitNext();
+  };
+
+  // Scène d'intro du boss : affiche le bouton "Commencer" après l'animation
+  // d'entrée de la statue (~2.5s), et programme des éclairs à intervalle
+  // aléatoire (1.5-3s) tant que la scène est affichée.
+  useEffect(() => {
+    if (!showBossIntro) {
+      setBossBtnVisible(false);
+      setBossLightning(null);
+      return;
+    }
+    const btnTimer = window.setTimeout(() => setBossBtnVisible(true), 2500);
+
+    let lightningTimer = 0;
+    let flashOffTimer = 0;
+    const scheduleLightning = () => {
+      const delay = 1500 + Math.random() * 1500;
+      lightningTimer = window.setTimeout(() => {
+        setBossLightning({ id: Date.now(), x: 10 + Math.random() * 80 });
+        flashOffTimer = window.setTimeout(() => setBossLightning(null), 200);
+        scheduleLightning();
+      }, delay);
+    };
+    scheduleLightning();
+
+    return () => {
+      window.clearTimeout(btnTimer);
+      window.clearTimeout(lightningTimer);
+      window.clearTimeout(flashOffTimer);
+    };
+  }, [showBossIntro]);
+
+  const skipTransition = () => {
+    if (transitionTimerRef.current !== null) {
+      window.clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+    stopBusEngineSound();
+    setTransitionLevel(null);
+    commitNext();
+  };
+
   const claimDailyBonus = () => {
+    playSound('piece.mp3');
     bombCountRef.current += 1;
     setBombCount(bombCountRef.current);
+    persistBoosters();
     localStorage.setItem(DAILY_BONUS_KEY, todayStr());
     setShowDailyBonus(false);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+    } catch {
+      // Déconnexion best-effort : on redirige de toute façon.
+    }
+    router.replace('/connexion');
   };
 
   const posInCity = posInCityFor(currentLevel);
@@ -928,18 +1660,128 @@ export default function MaRacinePuzzle() {
   const activeCount = activeTypeCountFor(posInCity);
   const types = typesArr(paletteIndex).slice(0, activeCount);
   const gridCols = gridView[0]?.length ?? 6;
+  const levelObstacleSpec = obstacleSpecFor(posInCity);
+  const obstaclesLeftCount = obstacleView.reduce(
+    (acc, row) => acc + row.filter((v) => v !== null).length,
+    0
+  );
+  const objectiveWasReached = isCollecte
+    ? collectCount >= collectTarget
+    : score >= targetForLevel(currentLevel);
+  const totalStars = Object.values(levelStars).reduce((acc, n) => acc + n, 0);
 
   return (
     <div className={styles.phoneScreen}>
+      <audio ref={bgMusicRef} muted onEnded={handleMusicEnded} style={{ display: 'none' }} />
+      <audio
+        ref={busEngineRef}
+        src="/sounds/bus-moteur.mp3"
+        loop
+        muted
+        style={{ display: 'none' }}
+      />
       <div className={styles.livesBar}>
-        <span className={styles.livesHearts}>❤️ {lives}/5</span>
-        {lives < 5 && nextLifeAt !== null && (
-          <span className={styles.livesCountdown}>
-            Prochaine vie : {formatRemaining(nextLifeAt - now)}
-          </span>
-        )}
+        <div className={styles.livesInfo}>
+          <span className={styles.livesHearts}>❤️ {lives}/5</span>
+          {lives < 5 && nextLifeAt !== null && (
+            <span className={styles.livesCountdown}>
+              Prochaine vie : {formatRemaining(nextLifeAt - now)}
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          className={styles.menuBtn}
+          onClick={() => setViewMode('profile')}
+          aria-label="Profil"
+        >
+          ☰
+        </button>
       </div>
-      {viewMode === 'map' ? (
+      {viewMode === 'profile' ? (
+        <div className={styles.profileScreen}>
+          <div className={styles.topBar}>
+            <button
+              type="button"
+              className={styles.backBtn}
+              onClick={() => setViewMode('map')}
+            >
+              ← Carte
+            </button>
+            <div className={styles.cityLabel}>Profil</div>
+            <div style={{ width: 34 }} />
+          </div>
+
+          <div className={styles.profileBody}>
+            <div className={styles.modalCard}>
+              {avatarId && (
+                <img
+                  src={`/avatars/${avatarId}.png`}
+                  alt=""
+                  className={styles.profileAvatarLarge}
+                />
+              )}
+              <div className={styles.modalTitle}>{pseudo || 'Joueur'}</div>
+              <div className={styles.profilePhoneSecondary}>
+                📱 {user ? `+${phoneFromUser(user)}` : 'Non connecté'}
+              </div>
+            </div>
+
+            <div className={styles.modalCard}>
+              <div className={styles.scoreRow} style={{ padding: 0 }}>
+                <div className={styles.pillStat}>
+                  <div className={styles.pillLabel}>Niveau atteint</div>
+                  <div className={styles.pillVal}>{highestUnlocked}</div>
+                </div>
+                <div className={styles.pillStat}>
+                  <div className={styles.pillLabel}>Étoiles</div>
+                  <div className={styles.pillVal}>⭐ {totalStars}</div>
+                </div>
+                <div className={styles.pillStat}>
+                  <div className={styles.pillLabel}>Pièces</div>
+                  <div className={styles.pillVal}>🪙 {coins}</div>
+                </div>
+              </div>
+            </div>
+
+            <a
+              href="https://wa.me/225554233234"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${styles.modalBtn} ${styles.ad}`}
+              style={{ textDecoration: 'none', textAlign: 'center' }}
+            >
+              💬 Contacter le support WhatsApp
+            </a>
+
+            <div className={styles.profileBtnRow}>
+              <button
+                type="button"
+                className={`${styles.modalBtn} ${styles.ghost}`}
+                onClick={toggleSoundPref}
+                style={{ marginBottom: 0 }}
+              >
+                {soundOn ? '🔊 Effets' : '🔇 Effets'}
+              </button>
+              <button
+                type="button"
+                className={`${styles.modalBtn} ${styles.ghost}`}
+                onClick={toggleMusicPref}
+                style={{ marginBottom: 0 }}
+              >
+                {musicOn ? '🎵 Musique' : '🔇 Musique'}
+              </button>
+            </div>
+            <button
+              type="button"
+              className={`${styles.modalBtn} ${styles.ghost}`}
+              onClick={handleSignOut}
+            >
+              Déconnexion
+            </button>
+          </div>
+        </div>
+      ) : viewMode === 'map' ? (
         <div className={styles.travelMap}>
           {PALETTES.map((city, ci) => {
             const cityStart = ci * LEVELS_PER_CITY + 1;
@@ -948,7 +1790,7 @@ export default function MaRacinePuzzle() {
             const nodePts = CITY_NODE_PERCENTS[ci];
             return (
               <div key={city.city} className={styles.mapCitySection}>
-                <div className={styles.mapCityBanner}>{city.city}</div>
+                {!hasBg && <div className={styles.mapCityBanner}>{city.city}</div>}
                 <div className={hasBg ? styles.mapRoutePercent : styles.mapRoute}>
                   {hasBg ? (
                     <>
@@ -982,7 +1824,6 @@ export default function MaRacinePuzzle() {
                   <div className={styles.mapNodeLayer}>
                     {Array.from({ length: LEVELS_PER_CITY }, (_, j) => {
                       const level = cityStart + j;
-                      const isCompleted = level < mapUnlocked;
                       const isActive = level === mapUnlocked;
                       const isLocked = level > mapUnlocked;
                       const left = nodePts ? `${nodePts[j].x}%` : routeXs[j];
@@ -998,14 +1839,25 @@ export default function MaRacinePuzzle() {
                             disabled={isLocked}
                             className={`${styles.mapNode} ${
                               isActive ? styles.mapNodeActive : ''
-                            } ${isCompleted ? styles.mapNodeCompleted : ''} ${
-                              isLocked ? styles.mapNodeLocked : ''
-                            }`}
+                            } ${isLocked ? styles.mapNodeLocked : ''}`}
                             onClick={() => goToLevel(level)}
                           >
                             <span className={styles.mapNodeNum}>{level}</span>
-                            {isCompleted && <span className={styles.mapNodeStar}>★</span>}
                             {isLocked && <span className={styles.mapNodeLock}>🔒</span>}
+                            {levelStars[level] !== undefined && (
+                              <span className={styles.mapNodeStarsBadge}>
+                                {([1, 2, 3] as const).map((n) => (
+                                  <span
+                                    key={n}
+                                    className={`${styles.mapNodeStarMini} ${
+                                      levelStars[level]! >= n ? styles.mapNodeStarMiniFilled : ''
+                                    }`}
+                                  >
+                                    ★
+                                  </span>
+                                ))}
+                              </span>
+                            )}
                           </button>
                           {isActive && (
                             <span className={styles.mapActiveLabel}>Toi es ici</span>
@@ -1038,7 +1890,10 @@ export default function MaRacinePuzzle() {
             <button
               type="button"
               className={styles.backBtn}
-              onClick={() => setViewMode('map')}
+              onClick={() => {
+                resumePlaylistIfNeeded();
+                setViewMode('map');
+              }}
             >
               ← Carte
             </button>
@@ -1046,8 +1901,14 @@ export default function MaRacinePuzzle() {
               Niveau {currentLevel} · {PALETTES[paletteIndex].city} · {LEVEL_TYPE_LABEL[levelType]}
             </div>
             <div className={styles.avatarBadge}>
-              <div className={styles.hair} />
-              <div className={styles.face} />
+              {avatarId ? (
+                <img src={`/avatars/${avatarId}.png`} alt="" className={styles.avatarImg} />
+              ) : (
+                <>
+                  <div className={styles.hair} />
+                  <div className={styles.face} />
+                </>
+              )}
             </div>
           </div>
 
@@ -1068,6 +1929,12 @@ export default function MaRacinePuzzle() {
           <div className={styles.pillLabel}>Coups</div>
           <div className={styles.pillVal}>{moves}</div>
         </div>
+        {levelObstacleSpec && (
+          <div className={styles.pillStat}>
+            <div className={styles.pillLabel}>Fétiches</div>
+            <div className={styles.pillVal}>🗿 × {obstaclesLeftCount}</div>
+          </div>
+        )}
       </div>
 
       <div className={styles.boosterRow}>
@@ -1104,25 +1971,118 @@ export default function MaRacinePuzzle() {
 
       <div className={styles.statusLine}>{statusText}</div>
 
+      <div className={styles.boardWrapper}>
       <div className={styles.board} style={{ ['--cols' as any]: gridCols }}>
         {gridView.map((row, r) =>
           row.map((val, c) => {
             const isSelected = selected !== null && selected.r === r && selected.c === c;
             const t = val !== null ? types[val] : null;
+            const obstacleHits = obstacleView[r]?.[c] ?? null;
+            const maxHits = levelObstacleSpec?.hits ?? 1;
+            const cellFx = boostFx.filter((f) => f.r === r && f.c === c && f.kind !== 'bolt');
+            const cellShards = shardTiles.filter((s) => s.r === r && s.c === c);
+            const cellFlashes = flashCells.filter((f) => f.r === r && f.c === c);
+            const isFlinching = flinchTiles.some((f) => f.r === r && f.c === c);
+            const isSwapArc = swapArcTiles.some((s) => s.r === r && s.c === c);
+            const matchPop = matchPopTiles.find((p) => p.r === r && p.c === c);
+            const matchPopClass = matchPop
+              ? matchPop.combo
+                ? styles.tileMatchPopCombo
+                : styles.tileMatchPop
+              : '';
             return (
               <div
                 key={`${r}-${c}`}
-                className={`${styles.tile} ${isSelected ? styles.tileSelected : ''}`}
+                className={`${styles.tile} ${isSelected ? styles.tileSelected : ''} ${
+                  isFlinching ? styles.tileFlinch : ''
+                } ${isSwapArc ? styles.tileSwapArc : ''} ${matchPopClass}`}
                 style={
                   t ? { background: `radial-gradient(circle at 35% 30%, #ffffff, ${t.bg})` } : undefined
                 }
                 onClick={() => onTileClick(r, c)}
               >
                 {t?.emoji}
+                {obstacleHits !== null && (
+                  <span
+                    className={styles.obstacleIcon}
+                    style={{ opacity: 0.35 + 0.65 * (obstacleHits / maxHits) }}
+                  >
+                    🗿
+                  </span>
+                )}
+                {cellFx.map((fx) =>
+                  fx.kind === 'bomb' ? (
+                    <span key={fx.id} className={styles.bombFx}>
+                      <span className={styles.bombShock} />
+                    </span>
+                  ) : (
+                    <span key={fx.id} className={styles.hammerFx}>
+                      <span className={styles.hammerIcon}>🔨</span>
+                    </span>
+                  )
+                )}
+                {cellFlashes.map((fx) => (
+                  <span
+                    key={fx.id}
+                    className={styles.boostFlash}
+                    style={{ ['--flash-color' as any]: fx.color }}
+                  />
+                ))}
+                {cellShards.map((s) => (
+                  <span key={s.id} className={styles.tileShardBurst}>
+                    {s.shards.map((sh, i) => (
+                      <span
+                        key={i}
+                        className={styles.tileShard}
+                        style={{
+                          ['--sangle' as any]: `${sh.angle}deg`,
+                          ['--srotate' as any]: `${sh.rotate}deg`,
+                          ['--sscale' as any]: sh.scale,
+                        }}
+                      >
+                        {s.emoji}
+                      </span>
+                    ))}
+                  </span>
+                ))}
               </div>
             );
           })
         )}
+        {boostFx
+          .filter((f) => f.kind === 'bolt')
+          .map((fx) => {
+            const rows = gridView.length;
+            const cols = gridView[0]?.length ?? 6;
+            return (
+              <svg
+                key={fx.id}
+                viewBox={`0 0 ${cols} ${rows}`}
+                preserveAspectRatio="none"
+                className={styles.boltFx}
+              >
+                <path d={buildZigzag(cols, fx.r + 0.5, true)} className={styles.boltPath} />
+                <path d={buildZigzag(rows, fx.c + 0.5, false)} className={styles.boltPath} />
+              </svg>
+            );
+          })}
+        {floatingScores.map((fx) => {
+          const rows = gridView.length;
+          const cols = gridView[0]?.length ?? 6;
+          return (
+            <span
+              key={fx.id}
+              className={`${styles.floatingScore} ${fx.combo ? styles.floatingScoreCombo : ''}`}
+              style={{
+                left: `${((fx.c + 0.5) / cols) * 100}%`,
+                top: `${((fx.r + 0.5) / rows) * 100}%`,
+              }}
+            >
+              +{fx.points}
+            </span>
+          );
+        })}
+      </div>
       </div>
 
       <div className={styles.legend}>
@@ -1173,12 +2133,18 @@ export default function MaRacinePuzzle() {
           <div className={styles.modalCard}>
             <div className={styles.modalTitle}>Niveau {currentLevel} échoué 💔</div>
             <div className={styles.modalBody} style={{ textAlign: 'center' }}>
-              Tu n&apos;as pas atteint l&apos;objectif :{' '}
-              <strong>
-                {isCollecte
-                  ? `${types[0].emoji} × ${collectTarget} ${types[0].name}`
-                  : `${targetForLevel(currentLevel)} points`}
-              </strong>
+              {objectiveWasReached ? (
+                <>Objectif atteint, mais il restait des fétiches 🗿 à casser.</>
+              ) : (
+                <>
+                  Tu n&apos;as pas atteint l&apos;objectif :{' '}
+                  <strong>
+                    {isCollecte
+                      ? `${types[0].emoji} × ${collectTarget} ${types[0].name}`
+                      : `${targetForLevel(currentLevel)} points`}
+                  </strong>
+                </>
+              )}
               <br />
               <br />
               {isCollecte ? (
@@ -1191,6 +2157,12 @@ export default function MaRacinePuzzle() {
                 </>
               )}{' '}
               · Coups épuisés.
+              {levelObstacleSpec && (
+                <>
+                  <br />
+                  🗿 Fétiches restants : <strong>{obstaclesLeftCount}</strong>
+                </>
+              )}
             </div>
             <button
               type="button"
@@ -1219,8 +2191,54 @@ export default function MaRacinePuzzle() {
 
       {showVictoryModal && (
         <div className={styles.modalOverlay}>
-          <div className={styles.modalCard}>
+          <div className={`${styles.modalCard} ${styles.victoryCardEnter}`}>
+            <div className={styles.confettiLayer}>
+              {confetti.map((cf) => (
+                <span
+                  key={cf.id}
+                  className={styles.confettiPiece}
+                  style={{
+                    left: `${cf.left}%`,
+                    background: cf.color,
+                    animationDuration: `${cf.duration}ms`,
+                    animationDelay: `${cf.delay}ms`,
+                    ['--cf-drift' as any]: `${cf.drift}px`,
+                  }}
+                />
+              ))}
+            </div>
+            {lastEarnedStars === 3 && (
+              <div className={styles.trophyWrap}>
+                <TrophyScene />
+              </div>
+            )}
             <div className={styles.modalTitle}>Niveau {currentLevel} réussi ! 🎉</div>
+            <div className={styles.starRow}>
+              {([1, 2, 3] as const).map((n) => {
+                const filledCount = levelStars[currentLevel] ?? 0;
+                const filled = filledCount >= n;
+                const delay = filled
+                  ? (n - 1) * 150
+                  : filledCount * 150 + 200 + (n - filledCount - 1) * 100;
+                return (
+                  <span
+                    key={n}
+                    className={`${styles.star} ${filled ? styles.starFilled : ''} ${
+                      filled ? styles.starPop : styles.starFade
+                    }`}
+                    style={{ animationDelay: `${delay}ms` }}
+                  >
+                    ★
+                  </span>
+                );
+              })}
+            </div>
+            {lastCoinsEarned > 0 && (
+              <div className={styles.coinsEarnedRow}>
+                <span className={styles.coinsEarnedIcon}>🪙</span>
+                <span>+{coinsCountUp}</span>
+              </div>
+            )}
             <div className={styles.modalBody} style={{ textAlign: 'center' }}>
               {isCollecte ? (
                 <>
@@ -1273,12 +2291,81 @@ export default function MaRacinePuzzle() {
         </div>
       )}
 
+      {showBossIntro && (
+        <div className={styles.bossIntro}>
+          <div className={styles.bossIntroSky} />
+          <div className={styles.bossIntroVeil} />
+          <div className={`${styles.bossIntroCloud} ${styles.bossIntroCloud1}`} />
+          <div className={`${styles.bossIntroCloud} ${styles.bossIntroCloud2}`} />
+          <div className={`${styles.bossIntroCloud} ${styles.bossIntroCloud3}`} />
+          <div className={`${styles.bossIntroCloud} ${styles.bossIntroCloud4}`} />
+          {bossLightning && (
+            <>
+              <div key={`flash-${bossLightning.id}`} className={styles.bossFlash} />
+              <svg
+                key={`bolt-${bossLightning.id}`}
+                viewBox="0 0 20 100"
+                className={styles.bossBoltSvg}
+                style={{ left: `${bossLightning.x}%` }}
+              >
+                <path d={BOSS_BOLT_D} className={styles.bossBoltPath} />
+              </svg>
+            </>
+          )}
+          <div className={styles.bossStatueEnter}>
+            <div className={styles.bossStatueSway}>
+              <div className={styles.bossStatueBreathe}>
+                <div className={styles.bossStatueImgWrap}>
+                  <img
+                    src="/maps/fetiche-abidjan.png"
+                    alt=""
+                    className={styles.bossStatueImg}
+                  />
+                  <span className={styles.bossEye} style={{ left: '41%', top: '23%' }} />
+                  <span className={styles.bossEye} style={{ left: '59%', top: '23%' }} />
+                </div>
+              </div>
+            </div>
+          </div>
+          {bossBtnVisible && (
+            <button
+              type="button"
+              className={`${styles.modalBtn} ${styles.pay} ${styles.bossStartBtn}`}
+              onClick={startBossIntroLevel}
+            >
+              Commencer
+            </button>
+          )}
+        </div>
+      )}
+
       {transitionLevel !== null && (
         <div className={styles.modalOverlay}>
-          <div className={styles.modalCard}>
-            <div className={styles.busTransitionBody}>
-              <div className={styles.busIcon}>🚌</div>
-              <div className={styles.busTransitionText}>
+          <div className={`${styles.modalCard} ${styles.transitionCard}`}>
+            <div className={styles.transitionScene}>
+              <img src="/maps/transition-fond.png" alt="" className={styles.transitionBg} />
+              <svg viewBox="0 0 100 100" className={styles.mapGuideSvg}>
+                <path
+                  ref={transitionPathRef}
+                  d={BUS_TRANSITION_GUIDE_D}
+                  className={styles.mapGuidePath}
+                />
+              </svg>
+              <img
+                ref={transitionBusRef}
+                src="/maps/transition-bus.png"
+                alt=""
+                className={styles.transitionBusIcon}
+              />
+              <div className={styles.transitionSmokeLayer} ref={transitionSmokeLayerRef} />
+              <button
+                type="button"
+                className={styles.transitionSkipBtn}
+                onClick={skipTransition}
+              >
+                Passer →
+              </button>
+              <div className={styles.transitionTextBand}>
                 En route vers {PALETTES[cityForLevel(transitionLevel)].city}...
               </div>
             </div>

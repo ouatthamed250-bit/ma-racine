@@ -3,8 +3,7 @@
 import Link from 'next/link';
 import styles from '../auth.module.css';
 
-// TODO: remplace par ton numéro WhatsApp au format international SANS '+' (ex. 2250700000000)
-const WHATSAPP_NUMBER = 'NUMERO_WHATSAPP';
+const WHATSAPP_NUMBER = '225554233234';
 
 export default function MotDePasseOublie() {
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}`;

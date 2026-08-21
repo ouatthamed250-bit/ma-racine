@@ -147,3 +147,63 @@
   font-weight: 700;
   text-decoration: none;
 }
+
+.avatarGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.avatarTile {
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  border: 3px solid transparent;
+  padding: 0;
+  overflow: hidden;
+  background: #fffaf0;
+  cursor: pointer;
+}
+
+.avatarTileImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatarTileSelected {
+  border-color: #ffb627;
+  box-shadow: 0 0 0 3px rgba(255, 182, 39, 0.35);
+}
+
+.continueBtn {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  border-radius: 16px;
+  font-family: var(--font-manrope), sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  background: linear-gradient(160deg, #ffc24d, #f09000 60%, #c97400);
+  box-shadow:
+    0 6px 0 #8a5000,
+    0 10px 16px rgba(0, 0, 0, 0.35),
+    inset 0 2px 3px rgba(255, 255, 255, 0.5);
+  color: white;
+  transition: transform 0.08s, box-shadow 0.08s;
+}
+
+.continueBtn:active {
+  transform: translateY(4px);
+  box-shadow:
+    0 2px 0 #8a5000,
+    0 4px 8px rgba(0, 0, 0, 0.3),
+    inset 0 2px 3px rgba(255, 255, 255, 0.5);
+}
+
+.continueBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+}
