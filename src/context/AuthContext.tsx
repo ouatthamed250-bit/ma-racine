@@ -30,7 +30,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      setLoading(false);
       if (u) {
         try {
           // getIdTokenResult(true) force le rafraîchissement pour lire les claims à jour.
@@ -42,6 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setIsAdmin(false);
       }
+      // loading ne passe à false qu'une fois isAdmin réellement résolu (succès,
+      // erreur ou absence d'utilisateur) — sinon un consommateur comme /admin
+      // peut voir loading=false et isAdmin encore à sa valeur initiale (false).
+      setLoading(false);
     });
     return unsubscribe;
   }, []);
