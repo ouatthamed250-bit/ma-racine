@@ -203,6 +203,13 @@ const typesArr = (pIdx: number) => PALETTES[pIdx].types;
 const randType = (pIdx: number, activeCount: number) =>
   Math.floor(Math.random() * activeCount);
 
+// ---- Objectifs bonus multi-ingrédients : 2e voie (optionnelle) vers 3 étoiles,
+// sur tous les niveaux. Le score seul reste suffisant pour gagner le niveau. ----
+const objectiveCountFor = (pos: number) => (pos <= 3 ? 1 : pos <= 7 ? 2 : 3);
+const objectiveTargetFor = (pos: number) => 6 + Math.floor(pos / 2);
+const objectiveIngredientsFor = (pIdx: number, pos: number) =>
+  typesArr(pIdx).slice(0, objectiveCountFor(pos));
+
 const createGrid = (pIdx: number, rows: number, cols: number, activeCount: number): Cell[][] => {
   const g: Cell[][] = [];
   for (let r = 0; r < rows; r++) {
@@ -401,6 +408,8 @@ export default function MaRacinePuzzle() {
   // Obstacles "fétiches" : liés à la position (r,c) du plateau, pas à une tuile.
   // Valeur = coups restants pour casser le fétiche sur cette case, null = pas d'obstacle.
   const obstacleGridRef = useRef<(number | null)[][]>([]);
+  // Compteur de tuiles réellement vidées par type (index 0-5), pour les objectifs bonus.
+  const tileClearCountsRef = useRef<number[]>(new Array(6).fill(0));
   const movesRef = useRef(movesForLevel(1));
   const levelRef = useRef(1);
   const scoreRef = useRef(0);
@@ -440,6 +449,7 @@ export default function MaRacinePuzzle() {
   const [pseudo, setPseudo] = useState('');
   const [gridView, setGridView] = useState<Cell[][]>([]);
   const [obstacleView, setObstacleView] = useState<(number | null)[][]>([]);
+  const [tileClearCounts, setTileClearCounts] = useState<number[]>(new Array(6).fill(0));
   const [boostFx, setBoostFx] = useState<
     ({ id: number; r: number; c: number } & ({ kind: 'bomb' } | { kind: 'hammer' } | { kind: 'bolt' }))[]
   >([]);
@@ -474,6 +484,7 @@ export default function MaRacinePuzzle() {
   const [showVictoryModal, setShowVictoryModal] = useState(false);
   const [lastCoinsEarned, setLastCoinsEarned] = useState(0);
   const [lastEarnedStars, setLastEarnedStars] = useState(0);
+  const [lastObjectivesComplete, setLastObjectivesComplete] = useState(false);
   const [coinsCountUp, setCoinsCountUp] = useState(0);
   const [confetti, setConfetti] = useState<
     { id: number; left: number; color: string; delay: number; duration: number; drift: number }[]
@@ -508,6 +519,7 @@ export default function MaRacinePuzzle() {
     }).catch(() => {});
   };
   const syncObstacles = () => setObstacleView(obstacleGridRef.current.map((row) => [...row]));
+  const syncTileClearCounts = () => setTileClearCounts([...tileClearCountsRef.current]);
 
   // Effets visuels des boosters (bombe/marteau/éclair) : ajoutés au déclenchement,
   // retirés tout seuls après leur durée d'animation — ne bloque jamais la logique
@@ -723,12 +735,14 @@ export default function MaRacinePuzzle() {
 
       matchedCells.forEach(({ r, c, val }) => {
         if (val === 0) collectRef.current += 1;
+        if (tileClearCountsRef.current[val] !== undefined) tileClearCountsRef.current[val] += 1;
         gridRef.current[r][c] = null;
         damageObstacle(r, c);
       });
       setCollectCount(collectRef.current);
       syncGrid();
       syncObstacles();
+      syncTileClearCounts();
       await sleep(150);
       applyGravity(gridRef.current, pIdx, activeCount);
       syncGrid();
@@ -743,8 +757,25 @@ export default function MaRacinePuzzle() {
     resumePlaylistIfNeeded();
     setShowVictoryModal(true);
 
-    // Étoiles : ne jamais diminuer un score déjà acquis pour ce niveau.
-    const earnedStars = starsForScore(levelRef.current, scoreRef.current);
+    // Objectifs bonus multi-ingrédients : 2e voie (optionnelle) vers 3 étoiles.
+    // Le score seul reste suffisant pour gagner le niveau (logique inchangée ci-dessous).
+    const pos = posInCityFor(levelRef.current);
+    const objectiveCount = objectiveCountFor(pos);
+    const objectiveTarget = objectiveTargetFor(pos);
+    let allObjectivesComplete = true;
+    for (let i = 0; i < objectiveCount; i++) {
+      if ((tileClearCountsRef.current[i] ?? 0) < objectiveTarget) {
+        allObjectivesComplete = false;
+        break;
+      }
+    }
+    setLastObjectivesComplete(allObjectivesComplete);
+
+    // Étoiles : ne jamais diminuer un score déjà acquis pour ce niveau. 3 étoiles si
+    // le score l'aurait déjà donné OU si les objectifs bonus sont tous complétés (OU,
+    // pas un remplacement — les seuils 1/2 étoiles restent ceux de starsForScore).
+    const baseStars = starsForScore(levelRef.current, scoreRef.current);
+    const earnedStars: 1 | 2 | 3 = baseStars === 3 || allObjectivesComplete ? 3 : baseStars;
     setLastEarnedStars(earnedStars);
     const prevStars = levelStarsRef.current[levelRef.current] ?? 0;
     if (earnedStars > prevStars) {
@@ -833,6 +864,9 @@ export default function MaRacinePuzzle() {
           const val = g[rr][cc];
           if (val !== null) destroyed.push({ r: rr, c: cc, val });
           if (val === 0) collectRef.current += 1;
+          if (val !== null && tileClearCountsRef.current[val] !== undefined) {
+            tileClearCountsRef.current[val] += 1;
+          }
           g[rr][cc] = null;
           damageObstacle(rr, cc);
           cleared++;
@@ -845,6 +879,7 @@ export default function MaRacinePuzzle() {
     setScore(scoreRef.current);
     syncGrid();
     syncObstacles();
+    syncTileClearCounts();
     await sleep(200);
     applyGravity(gridRef.current, pIdx, activeCount);
     syncGrid();
@@ -866,8 +901,10 @@ export default function MaRacinePuzzle() {
     let cleared = 0;
     const destroyed: { r: number; c: number; val: number }[] = [];
     if (g[r][c] !== null) {
-      destroyed.push({ r, c, val: g[r][c]! });
-      if (g[r][c] === 0) collectRef.current += 1;
+      const val = g[r][c]!;
+      destroyed.push({ r, c, val });
+      if (val === 0) collectRef.current += 1;
+      if (tileClearCountsRef.current[val] !== undefined) tileClearCountsRef.current[val] += 1;
       g[r][c] = null;
       damageObstacle(r, c);
       cleared = 1;
@@ -878,6 +915,7 @@ export default function MaRacinePuzzle() {
     setScore(scoreRef.current);
     syncGrid();
     syncObstacles();
+    syncTileClearCounts();
     await sleep(200);
     applyGravity(gridRef.current, pIdx, activeCount);
     syncGrid();
@@ -900,8 +938,10 @@ export default function MaRacinePuzzle() {
     const destroyed: { r: number; c: number; val: number }[] = [];
     for (let rr = 0; rr < rows; rr++) {
       if (g[rr][c] !== null) {
-        destroyed.push({ r: rr, c, val: g[rr][c]! });
-        if (g[rr][c] === 0) collectRef.current += 1;
+        const val = g[rr][c]!;
+        destroyed.push({ r: rr, c, val });
+        if (val === 0) collectRef.current += 1;
+        if (tileClearCountsRef.current[val] !== undefined) tileClearCountsRef.current[val] += 1;
         g[rr][c] = null;
         damageObstacle(rr, c);
         cleared++;
@@ -909,8 +949,10 @@ export default function MaRacinePuzzle() {
     }
     for (let cc = 0; cc < cols; cc++) {
       if (cc !== c && g[r][cc] !== null) {
-        destroyed.push({ r, c: cc, val: g[r][cc]! });
-        if (g[r][cc] === 0) collectRef.current += 1;
+        const val = g[r][cc]!;
+        destroyed.push({ r, c: cc, val });
+        if (val === 0) collectRef.current += 1;
+        if (tileClearCountsRef.current[val] !== undefined) tileClearCountsRef.current[val] += 1;
         g[r][cc] = null;
         damageObstacle(r, cc);
         cleared++;
@@ -922,6 +964,7 @@ export default function MaRacinePuzzle() {
     setScore(scoreRef.current);
     syncGrid();
     syncObstacles();
+    syncTileClearCounts();
     await sleep(200);
     applyGravity(gridRef.current, pIdx, activeCount);
     syncGrid();
@@ -1099,6 +1142,10 @@ export default function MaRacinePuzzle() {
     }
     obstacleGridRef.current = newObstacles;
     syncObstacles();
+
+    // Objectifs bonus : remet à zéro le compteur de tuiles vidées par type.
+    tileClearCountsRef.current = new Array(6).fill(0);
+    syncTileClearCounts();
   };
 
   // Initialise le niveau au montage. React 19 préfère éviter le setState en
@@ -1665,6 +1712,8 @@ export default function MaRacinePuzzle() {
     (acc, row) => acc + row.filter((v) => v !== null).length,
     0
   );
+  const objectiveTarget = objectiveTargetFor(posInCity);
+  const objectiveIngredients = objectiveIngredientsFor(paletteIndex, posInCity);
   const objectiveWasReached = isCollecte
     ? collectCount >= collectTarget
     : score >= targetForLevel(currentLevel);
@@ -1935,6 +1984,17 @@ export default function MaRacinePuzzle() {
             <div className={styles.pillVal}>🗿 × {obstaclesLeftCount}</div>
           </div>
         )}
+      </div>
+
+      <div className={styles.bonusObjectiveRow}>
+        {objectiveIngredients.map((ing, i) => (
+          <div key={ing.name} className={styles.bonusObjectiveBadge}>
+            <span>{ing.emoji}</span>
+            <span>
+              {Math.min(tileClearCounts[i] ?? 0, objectiveTarget)}/{objectiveTarget}
+            </span>
+          </div>
+        ))}
       </div>
 
       <div className={styles.boosterRow}>
@@ -2237,6 +2297,11 @@ export default function MaRacinePuzzle() {
               <div className={styles.coinsEarnedRow}>
                 <span className={styles.coinsEarnedIcon}>🪙</span>
                 <span>+{coinsCountUp}</span>
+              </div>
+            )}
+            {lastObjectivesComplete && (
+              <div className={styles.objectivesCompleteBadge}>
+                🎯 Tous les ingrédients récoltés !
               </div>
             )}
             <div className={styles.modalBody} style={{ textAlign: 'center' }}>

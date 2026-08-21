@@ -307,6 +307,25 @@
   font-size: 18px;
 }
 
+.bonusObjectiveRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 16px 0;
+}
+.bonusObjectiveBadge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--ivoireCard);
+  border-radius: 10px;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bogolanSoft);
+  box-shadow: 0 3px 7px rgba(46, 31, 20, 0.06);
+}
+
 .boosterRow {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1076,6 +1095,13 @@
   100% {
     transform: rotateY(360deg);
   }
+}
+
+.objectivesCompleteBadge {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #5aa84f;
 }
 
 .modalTitle {
