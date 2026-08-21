@@ -1127,6 +1127,14 @@
   margin-top: 4px;
 }
 
+/* DEBUG TEMPORAIRE — à retirer une fois isAdmin vérifié visuellement. */
+.profileDebugAdmin {
+  font-size: 10px;
+  color: var(--bogolanSoft);
+  opacity: 0.6;
+  margin-top: 2px;
+}
+
 .starRow {
   display: flex;
   justify-content: center;

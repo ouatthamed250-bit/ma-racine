@@ -398,7 +398,7 @@ function percentAtNode(pathEl: SVGPathElement, xi: number, yi: number, total: nu
 }
 
 export default function MaRacinePuzzle() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const router = useRouter();
   const { soundOn, toggle: toggleSoundPref } = useSound();
   const { musicOn, toggle: toggleMusicPref } = useMusic();
@@ -1774,6 +1774,8 @@ export default function MaRacinePuzzle() {
               <div className={styles.profilePhoneSecondary}>
                 📱 {user ? `+${phoneFromUser(user)}` : 'Non connecté'}
               </div>
+              {/* DEBUG TEMPORAIRE — à retirer une fois isAdmin vérifié visuellement. */}
+              <div className={styles.profileDebugAdmin}>Admin : {isAdmin ? 'oui' : 'non'}</div>
             </div>
 
             <div className={styles.modalCard}>
