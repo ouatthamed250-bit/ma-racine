@@ -1,0 +1,14 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      // Chaque utilisateur lit/écrit uniquement son propre document.
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // Un admin (custom claim admin: true) peut lire n'importe quel document
+      // de la collection (y compris la liste complète), jamais écrire.
+      allow read: if request.auth != null && request.auth.token.admin == true;
+    }
+  }
+}

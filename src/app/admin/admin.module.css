@@ -114,3 +114,35 @@
   opacity: 0.7;
   margin: 20px 0;
 }
+
+.tableWrap {
+  overflow-x: auto;
+  text-align: left;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.table th,
+.table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(46, 31, 20, 0.1);
+}
+
+.table th {
+  font-family: var(--font-baloo), sans-serif;
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #4a3322;
+}
+
+.table tbody tr:hover {
+  background: rgba(255, 182, 39, 0.12);
+}
