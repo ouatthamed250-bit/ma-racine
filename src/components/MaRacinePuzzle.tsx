@@ -399,8 +399,6 @@ function percentAtNode(pathEl: SVGPathElement, xi: number, yi: number, total: nu
 
 export default function MaRacinePuzzle() {
   const { user } = useAuth();
-  // DEBUG TEMPORAIRE — claims bruts du token, à retirer une fois vérifié.
-  const [debugClaimsJson, setDebugClaimsJson] = useState('');
   const router = useRouter();
   const { soundOn, toggle: toggleSoundPref } = useSound();
   const { musicOn, toggle: toggleMusicPref } = useMusic();
@@ -1227,19 +1225,6 @@ export default function MaRacinePuzzle() {
     };
   }, []);
 
-  // DEBUG TEMPORAIRE — récupère les claims bruts du token pour affichage sur
-  // l'écran profil, à retirer une fois vérifié.
-  useEffect(() => {
-    if (!user) {
-      setDebugClaimsJson('');
-      return;
-    }
-    user
-      .getIdTokenResult(true)
-      .then((r) => setDebugClaimsJson(JSON.stringify(r.claims, null, 2)))
-      .catch((err) => setDebugClaimsJson(`Erreur : ${err?.message ?? err}`));
-  }, [user]);
-
   // Musique de fond : volume fixé une fois au montage.
   useEffect(() => {
     if (bgMusicRef.current) bgMusicRef.current.volume = 0.35;
@@ -1789,9 +1774,6 @@ export default function MaRacinePuzzle() {
               <div className={styles.profilePhoneSecondary}>
                 📱 {user ? `+${phoneFromUser(user)}` : 'Non connecté'}
               </div>
-              {/* DEBUG TEMPORAIRE — à retirer une fois vérifié. */}
-              <div className={styles.profileDebugAdmin}>UID connecté : {user?.uid ?? '(aucun)'}</div>
-              <pre className={styles.profileDebugAdmin}>{debugClaimsJson}</pre>
             </div>
 
             <div className={styles.modalCard}>
