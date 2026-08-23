@@ -2143,7 +2143,7 @@ export default function MaRacinePuzzle() {
               <Fragment key={city.city}>
                 {prevHasBg && hasBg && (
                   <img
-                    src="/maps/nuage-voile.png"
+                    src="/maps/nuage-voile.png?v=6"
                     alt=""
                     className={styles.mapCloudVeil}
                   />
