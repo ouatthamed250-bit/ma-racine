@@ -1635,7 +1635,10 @@
   display: block;
   width: calc(100% + 32px);
   height: auto;
-  margin: -60px -16px;
+  margin-top: -78px;
+  margin-right: -16px;
+  margin-bottom: -60px;
+  margin-left: -16px;
   aspect-ratio: 16 / 6;
   object-fit: cover;
   z-index: 2;
