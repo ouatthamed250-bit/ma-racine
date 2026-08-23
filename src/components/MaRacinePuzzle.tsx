@@ -1867,14 +1867,17 @@ export default function MaRacinePuzzle() {
         </button>
       </div>
       {viewMode === 'map' && (
-        <button
-          type="button"
-          className={styles.shopFab}
-          onClick={() => setViewMode('shop')}
-          aria-label="Boutique"
-        >
-          <img src="/maps/panier-icone.png" alt="" className={styles.shopFabImg} />
-        </button>
+        <div className={styles.shopFabWrap}>
+          <button
+            type="button"
+            className={styles.shopFab}
+            onClick={() => setViewMode('shop')}
+            aria-label="Boutique"
+          >
+            <img src="/maps/panier-icone.png" alt="" className={styles.shopFabImg} />
+          </button>
+          <span className={styles.shopFabCoins}>🪙 {coins}</span>
+        </div>
       )}
       {viewMode === 'profile' ? (
         <div className={styles.profileScreen}>
@@ -1986,6 +1989,8 @@ export default function MaRacinePuzzle() {
             <div className={styles.cityLabel}>Boutique</div>
             <div style={{ width: 34 }} />
           </div>
+
+          <div className={styles.shopCoinsBanner}>🪙 {coins}</div>
 
           <div className={styles.profileBody}>
             {!selectedPack ? (
@@ -2244,6 +2249,10 @@ export default function MaRacinePuzzle() {
         <div className={styles.pillStat}>
           <div className={styles.pillLabel}>Coups</div>
           <div className={styles.pillVal}>{moves}</div>
+        </div>
+        <div className={styles.pillStat}>
+          <div className={styles.pillLabel}>Pièces</div>
+          <div className={styles.pillVal}>🪙 {coins}</div>
         </div>
         {levelObstacleSpec && (
           <div className={styles.pillStat}>
