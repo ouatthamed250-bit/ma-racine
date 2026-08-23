@@ -1633,13 +1633,13 @@
 .mapCloudVeil {
   position: relative;
   display: block;
-  width: calc(100% + 32px);
+  width: calc(100% + 80px);
   height: auto;
   margin-top: -78px;
-  margin-right: -16px;
+  margin-right: -40px;
   margin-bottom: -60px;
-  margin-left: -16px;
-  aspect-ratio: 16 / 6;
+  margin-left: -40px;
+  aspect-ratio: 2048 / 420;
   object-fit: cover;
   z-index: 2;
   pointer-events: none;
