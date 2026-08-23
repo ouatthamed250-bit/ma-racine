@@ -136,9 +136,8 @@ const LEVELS_PER_CITY = 12;
 const DAILY_BONUS_KEY = 'maRacineLastBonusDate';
 
 // ---- Boutique de pièces : Wave/Orange Money, validation manuelle par l'admin ----
-// TODO: remplacer par les vrais numéros marchands avant mise en production.
-const WAVE_NUMBER = 'NUMERO_WAVE';
-const OM_NUMBER = 'NUMERO_OM';
+const WAVE_NUMBER = '0749883981';
+const OM_NUMBER = '0749883981';
 
 type CoinPack = { id: string; label: string; coins: number; priceFcfa: number };
 const COIN_PACKS: CoinPack[] = [
