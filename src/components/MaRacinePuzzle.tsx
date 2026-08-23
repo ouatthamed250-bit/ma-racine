@@ -2143,6 +2143,13 @@ export default function MaRacinePuzzle() {
                 <div className={hasBg ? styles.mapRoutePercent : styles.mapRoute}>
                   {hasBg ? (
                     <>
+                      {ci > 0 && CITY_BACKGROUNDS[ci - 1] !== null && (
+                        <img
+                          src="/maps/nuage-voile.png"
+                          alt=""
+                          className={styles.mapCloudVeil}
+                        />
+                      )}
                       <img
                         src={CITY_BACKGROUNDS[ci]!}
                         alt={city.city}
