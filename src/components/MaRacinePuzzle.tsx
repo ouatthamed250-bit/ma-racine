@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import styles from './MaRacinePuzzle.module.css';
@@ -2138,21 +2138,18 @@ export default function MaRacinePuzzle() {
             const hasBg = CITY_BACKGROUNDS[ci] !== null;
             const nodePts = CITY_NODE_PERCENTS[ci];
             return (
-              <Fragment key={city.city}>
-                {ci > 0 && hasBg && CITY_BACKGROUNDS[ci - 1] !== null && (
-                  <div className={styles.mapCityJunction}>
-                    <img
-                      src="/maps/nuage-voile.png"
-                      alt=""
-                      className={styles.mapCloudVeil}
-                    />
-                  </div>
-                )}
-                <div className={styles.mapCitySection}>
+              <div key={city.city} className={styles.mapCitySection}>
                 {!hasBg && <div className={styles.mapCityBanner}>{city.city}</div>}
                 <div className={hasBg ? styles.mapRoutePercent : styles.mapRoute}>
                   {hasBg ? (
                     <>
+                      {ci > 0 && CITY_BACKGROUNDS[ci - 1] !== null && (
+                        <img
+                          src="/maps/nuage-voile.png"
+                          alt=""
+                          className={styles.mapCloudVeil}
+                        />
+                      )}
                       <img
                         src={CITY_BACKGROUNDS[ci]!}
                         alt={city.city}
@@ -2239,8 +2236,7 @@ export default function MaRacinePuzzle() {
                     )}
                   </div>
                 </div>
-                </div>
-              </Fragment>
+              </div>
             );
           })}
         </div>

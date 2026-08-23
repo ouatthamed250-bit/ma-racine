@@ -1626,21 +1626,15 @@
   z-index: 5;
 }
 
-.mapCityJunction {
-  position: relative;
-  width: calc(100% + 32px);
-  margin: 22px -16px;
-  height: 110px;
-  overflow: hidden;
-  pointer-events: none;
-}
-
 .mapCloudVeil {
   position: absolute;
-  inset: 0;
+  top: -80px;
+  left: 0;
   width: 100%;
-  height: 100%;
+  height: auto;
+  aspect-ratio: 16 / 6;
   object-fit: cover;
+  z-index: 2;
   pointer-events: none;
 }
 
