@@ -146,7 +146,21 @@ const COIN_PACKS: CoinPack[] = [
   { id: 'grand', label: 'Grand', coins: 1000, priceFcfa: 1000 },
 ];
 const MOVES_COST_COINS = 50;
-const LIFE_COST_COINS = 30;
+const LIFE_COST_COINS = 100;
+
+type BoosterShopItem = {
+  id: 'bomb' | 'hammer' | 'bolt' | 'shuffle' | 'life';
+  emoji: string;
+  label: string;
+  cost: number;
+};
+const BOOSTER_SHOP_ITEMS: BoosterShopItem[] = [
+  { id: 'bomb', emoji: '💣', label: 'Bombe', cost: 40 },
+  { id: 'hammer', emoji: '🔨', label: 'Marteau', cost: 30 },
+  { id: 'bolt', emoji: '⚡', label: 'Éclair', cost: 40 },
+  { id: 'shuffle', emoji: '🔀', label: 'Mélange', cost: 25 },
+  { id: 'life', emoji: '❤️', label: 'Vie', cost: LIFE_COST_COINS },
+];
 const REFILL_MS = 3 * 60 * 1000; // 3 minutes par vie
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
@@ -1609,6 +1623,29 @@ export default function MaRacinePuzzle() {
     return true;
   };
 
+  // Achat boutique d'un booster ou d'une vie contre des pièces.
+  const buyBoosterItem = (item: BoosterShopItem) => {
+    if (!spendCoins(item.cost)) return;
+    if (item.id === 'life') {
+      addLife();
+      return;
+    }
+    if (item.id === 'bomb') {
+      bombCountRef.current += 1;
+      setBombCount(bombCountRef.current);
+    } else if (item.id === 'hammer') {
+      hammerCountRef.current += 1;
+      setHammerCount(hammerCountRef.current);
+    } else if (item.id === 'bolt') {
+      boltCountRef.current += 1;
+      setBoltCount(boltCountRef.current);
+    } else if (item.id === 'shuffle') {
+      shuffleCountRef.current += 1;
+      setShuffleCount(shuffleCountRef.current);
+    }
+    persistBoosters();
+  };
+
   // Bouton "Payer" de la modale d'échec : dépense de vraies pièces au lieu
   // d'accorder la récompense gratuitement. Solde insuffisant -> direction boutique.
   const paidContinueWithMoves = (extra: number) => {
@@ -1952,20 +1989,41 @@ export default function MaRacinePuzzle() {
 
           <div className={styles.profileBody}>
             {!selectedPack ? (
-              <div className={styles.shopPackGrid}>
-                {COIN_PACKS.map((pack) => (
-                  <button
-                    key={pack.id}
-                    type="button"
-                    className={styles.shopPackCard}
-                    onClick={() => setSelectedPack(pack)}
-                  >
-                    <div className={styles.shopPackLabel}>{pack.label}</div>
-                    <div className={styles.shopPackCoins}>🪙 {pack.coins}</div>
-                    <div className={styles.shopPackPrice}>{pack.priceFcfa} FCFA</div>
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className={styles.shopPackGrid}>
+                  {COIN_PACKS.map((pack) => (
+                    <button
+                      key={pack.id}
+                      type="button"
+                      className={styles.shopPackCard}
+                      onClick={() => setSelectedPack(pack)}
+                    >
+                      <div className={styles.shopPackLabel}>{pack.label}</div>
+                      <div className={styles.shopPackCoins}>🪙 {pack.coins}</div>
+                      <div className={styles.shopPackPrice}>{pack.priceFcfa} FCFA</div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className={styles.shopSectionTitle}>Boosters &amp; Vies</div>
+                <div className={styles.shopBoosterGrid}>
+                  {BOOSTER_SHOP_ITEMS.map((item) => (
+                    <div key={item.id} className={styles.shopBoosterCard}>
+                      <span className={styles.shopBoosterEmoji}>{item.emoji}</span>
+                      <span className={styles.shopBoosterLabel}>{item.label}</span>
+                      <button
+                        type="button"
+                        className={`${styles.modalBtn} ${styles.pay}`}
+                        style={{ marginBottom: 0 }}
+                        disabled={coins < item.cost}
+                        onClick={() => buyBoosterItem(item)}
+                      >
+                        Acheter · {item.cost} 🪙
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
             ) : paymentSubmitted ? (
               <div className={styles.modalCard}>
                 <div className={styles.modalTitle}>Demande envoyée ✅</div>
@@ -2235,7 +2293,13 @@ export default function MaRacinePuzzle() {
         >
           🔀 Mélange ({shuffleCount})
         </button>
-        <div className={styles.boosterLocked}>🔒 +3 avec 200 🪙</div>
+        <button
+          type="button"
+          className={styles.boosterLocked}
+          onClick={() => setViewMode('shop')}
+        >
+          🧺 Boutique
+        </button>
       </div>
 
       <div className={styles.statusLine}>{statusText}</div>
@@ -2385,6 +2449,11 @@ export default function MaRacinePuzzle() {
               <br />
               <br />
               Chaque ville a ses propres ingrédients, liés à ce qu&apos;elle produit vraiment.
+              <br />
+              <br />
+              Réussis un niveau pour la première fois pour gagner des pièces 🪙 !
+              Utilise-les dans la boutique (icône panier 🧺 sur la carte) pour
+              acheter des boosters ou des vies.
             </div>
             <button
               type="button"
