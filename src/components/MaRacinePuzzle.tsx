@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { Fragment, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import styles from './MaRacinePuzzle.module.css';
@@ -2137,19 +2137,26 @@ export default function MaRacinePuzzle() {
             const route = cityRoute(ci);
             const hasBg = CITY_BACKGROUNDS[ci] !== null;
             const nodePts = CITY_NODE_PERCENTS[ci];
+            const prevHasBg = ci > 0 && CITY_BACKGROUNDS[ci - 1] !== null;
+            const nextHasBg = ci < PALETTES.length - 1 && CITY_BACKGROUNDS[ci + 1] !== null;
             return (
-              <div key={city.city} className={styles.mapCitySection}>
+              <Fragment key={city.city}>
+                {prevHasBg && hasBg && (
+                  <img
+                    src="/maps/nuage-voile.png"
+                    alt=""
+                    className={styles.mapCloudVeil}
+                  />
+                )}
+                <div
+                  className={`${styles.mapCitySection} ${
+                    hasBg && nextHasBg ? styles.mapCitySectionTight : ''
+                  }`}
+                >
                 {!hasBg && <div className={styles.mapCityBanner}>{city.city}</div>}
                 <div className={hasBg ? styles.mapRoutePercent : styles.mapRoute}>
                   {hasBg ? (
                     <>
-                      {ci > 0 && CITY_BACKGROUNDS[ci - 1] !== null && (
-                        <img
-                          src="/maps/nuage-voile.png"
-                          alt=""
-                          className={styles.mapCloudVeil}
-                        />
-                      )}
                       <img
                         src={CITY_BACKGROUNDS[ci]!}
                         alt={city.city}
@@ -2236,7 +2243,8 @@ export default function MaRacinePuzzle() {
                     )}
                   </div>
                 </div>
-              </div>
+                </div>
+              </Fragment>
             );
           })}
         </div>

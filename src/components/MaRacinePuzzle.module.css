@@ -1626,12 +1626,16 @@
   z-index: 5;
 }
 
+.mapCitySectionTight {
+  margin-bottom: 0;
+}
+
 .mapCloudVeil {
-  position: absolute;
-  top: -80px;
-  left: 0;
-  width: 100%;
+  position: relative;
+  display: block;
+  width: calc(100% + 32px);
   height: auto;
+  margin: -60px -16px;
   aspect-ratio: 16 / 6;
   object-fit: cover;
   z-index: 2;
