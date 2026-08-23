@@ -145,6 +145,8 @@ const COIN_PACKS: CoinPack[] = [
   { id: 'moyen', label: 'Moyen', coins: 350, priceFcfa: 500 },
   { id: 'grand', label: 'Grand', coins: 1000, priceFcfa: 1000 },
 ];
+const MOVES_COST_COINS = 50;
+const LIFE_COST_COINS = 30;
 const REFILL_MS = 3 * 60 * 1000; // 3 minutes par vie
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
@@ -1598,6 +1600,36 @@ export default function MaRacinePuzzle() {
     setShowFailureModal(false);
   };
 
+  // Dépense `amount` pièces si le solde le permet ; persiste le nouveau total.
+  const spendCoins = (amount: number): boolean => {
+    if (coins < amount) return false;
+    const next = coins - amount;
+    setCoins(next);
+    if (user) saveCoins(user.uid, next).catch(() => {});
+    return true;
+  };
+
+  // Bouton "Payer" de la modale d'échec : dépense de vraies pièces au lieu
+  // d'accorder la récompense gratuitement. Solde insuffisant -> direction boutique.
+  const paidContinueWithMoves = (extra: number) => {
+    if (spendCoins(MOVES_COST_COINS)) {
+      continueWithMoves(extra);
+    } else {
+      setShowFailureModal(false);
+      setViewMode('shop');
+    }
+  };
+
+  // Bouton "Payer" de la modale "plus de vies" : même principe.
+  const paidAddLife = () => {
+    if (spendCoins(LIFE_COST_COINS)) {
+      addLife();
+    } else {
+      setShowNoLives(false);
+      setViewMode('shop');
+    }
+  };
+
   const goToLevel = (level: number) => {
     playSound('clic.mp3');
     if (level === levelRef.current && gridRef.current.length > 0) {
@@ -1797,6 +1829,16 @@ export default function MaRacinePuzzle() {
           ☰
         </button>
       </div>
+      {viewMode === 'map' && (
+        <button
+          type="button"
+          className={styles.shopFab}
+          onClick={() => setViewMode('shop')}
+          aria-label="Boutique"
+        >
+          <img src="/maps/panier-icone.png" alt="" className={styles.shopFabImg} />
+        </button>
+      )}
       {viewMode === 'profile' ? (
         <div className={styles.profileScreen}>
           <div className={styles.topBar}>
@@ -2401,9 +2443,9 @@ export default function MaRacinePuzzle() {
             <button
               type="button"
               className={`${styles.modalBtn} ${styles.pay}`}
-              onClick={() => continueWithMoves(5)}
+              onClick={() => paidContinueWithMoves(5)}
             >
-              💳 Payer 100 FCFA · +5 coups
+              💳 {MOVES_COST_COINS} 🪙 · +5 coups
             </button>
             <button
               type="button"
@@ -2623,9 +2665,9 @@ export default function MaRacinePuzzle() {
             <button
               type="button"
               className={`${styles.modalBtn} ${styles.pay}`}
-              onClick={addLife}
+              onClick={paidAddLife}
             >
-              💳 Payer · +1 vie
+              💳 {LIFE_COST_COINS} 🪙 · +1 vie
             </button>
           </div>
         </div>

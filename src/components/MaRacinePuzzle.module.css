@@ -1280,6 +1280,34 @@
   cursor: pointer;
 }
 
+.shopFab {
+  position: absolute;
+  top: 60px;
+  right: 16px;
+  z-index: 10;
+  width: 52px;
+  height: 52px;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.6);
+  background: radial-gradient(circle at 32% 26%, #fff6c8, #ffb627 55%, #d98a12 100%);
+  box-shadow:
+    inset 0 3px 4px rgba(255, 255, 255, 0.75),
+    inset 0 -5px 6px rgba(46, 31, 20, 0.2),
+    0 6px 12px rgba(46, 31, 20, 0.35);
+  cursor: pointer;
+}
+
+.shopFabImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
 .profileScreen {
   display: flex;
   flex-direction: column;
