@@ -1300,6 +1300,99 @@
   flex: 1;
 }
 
+/* ---- Boutique de pièces ---- */
+
+.shopPackGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.shopPackCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 2.5px solid rgba(255, 255, 255, 0.5);
+  background: linear-gradient(160deg, #ffc24d, #f09000 60%, #c97400);
+  box-shadow:
+    0 6px 0 #8a5000,
+    0 10px 16px rgba(0, 0, 0, 0.3),
+    inset 0 2px 3px rgba(255, 255, 255, 0.5);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.08s, box-shadow 0.08s;
+}
+.shopPackCard:active {
+  transform: translateY(4px);
+  box-shadow:
+    0 2px 0 #8a5000,
+    0 4px 8px rgba(0, 0, 0, 0.25),
+    inset 0 2px 3px rgba(255, 255, 255, 0.5);
+}
+
+.shopPackLabel {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 800;
+  font-size: 15px;
+  text-align: left;
+}
+
+.shopPackCoins {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 800;
+  font-size: 17px;
+}
+
+.shopPackPrice {
+  font-weight: 700;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.shopMethodRow {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.shopMethodBtn {
+  flex: 1;
+  padding: 10px 8px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(46, 31, 20, 0.15);
+  background: var(--ivoireCard);
+  color: var(--bogolan);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.shopMethodBtnActive {
+  background: var(--soleil);
+  border-color: var(--soleilDeep);
+}
+
+.shopInput {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(46, 31, 20, 0.15);
+  background: var(--ivoireCard);
+  color: var(--bogolan);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.shopError {
+  color: #e0472b;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  margin: -4px 0 10px;
+}
+
 .transitionCard {
   padding: 0;
   overflow: hidden;

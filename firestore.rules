@@ -6,9 +6,26 @@ service cloud.firestore {
       // Chaque utilisateur lit/écrit uniquement son propre document.
       allow read, write: if request.auth != null && request.auth.uid == uid;
 
-      // Un admin (custom claim admin: true) peut lire n'importe quel document
-      // de la collection (y compris la liste complète), jamais écrire.
-      allow read: if request.auth != null && request.auth.token.admin == true;
+      // Un admin (custom claim admin: true) peut lire ET écrire n'importe quel
+      // document (lecture : liste complète ; écriture : ex. créditer des pièces
+      // à la validation d'un paiement).
+      allow read, write: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    match /paymentRequests/{requestId} {
+      // Un utilisateur connecté ne peut créer que ses propres demandes.
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid;
+
+      // Lecture : le propriétaire de la demande, ou un admin.
+      allow read: if request.auth != null
+        && (resource.data.uid == request.auth.uid || request.auth.token.admin == true);
+
+      // Seul un admin peut modifier le statut (validation/rejet).
+      allow update: if request.auth != null && request.auth.token.admin == true;
+
+      // Aucune suppression.
+      allow delete: if false;
     }
   }
 }

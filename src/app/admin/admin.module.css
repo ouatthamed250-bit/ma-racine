@@ -146,3 +146,44 @@
 .table tbody tr:hover {
   background: rgba(255, 182, 39, 0.12);
 }
+
+.paymentActions {
+  display: flex;
+  gap: 6px;
+}
+
+.approveBtn,
+.rejectBtn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: none;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.approveBtn {
+  background: #5aa84f;
+  color: #fff;
+}
+
+.rejectBtn {
+  background: #e0472b;
+  color: #fff;
+}
+
+.approveBtn:disabled,
+.rejectBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.statusApproved {
+  color: #3d7a3a;
+  font-weight: 700;
+}
+
+.statusRejected {
+  color: #e0472b;
+  font-weight: 700;
+}

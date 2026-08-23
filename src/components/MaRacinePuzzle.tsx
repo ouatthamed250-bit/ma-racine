@@ -6,7 +6,8 @@ import { signOut } from 'firebase/auth';
 import styles from './MaRacinePuzzle.module.css';
 import TrophyScene from './TrophyScene';
 import { useAuth } from '@/context/AuthContext';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import {
   playSound,
   useSound,
@@ -133,6 +134,18 @@ const PALETTES: Palette[] = [
 const LEVELS = 96;
 const LEVELS_PER_CITY = 12;
 const DAILY_BONUS_KEY = 'maRacineLastBonusDate';
+
+// ---- Boutique de pièces : Wave/Orange Money, validation manuelle par l'admin ----
+// TODO: remplacer par les vrais numéros marchands avant mise en production.
+const WAVE_NUMBER = 'NUMERO_WAVE';
+const OM_NUMBER = 'NUMERO_OM';
+
+type CoinPack = { id: string; label: string; coins: number; priceFcfa: number };
+const COIN_PACKS: CoinPack[] = [
+  { id: 'petit', label: 'Petit', coins: 100, priceFcfa: 200 },
+  { id: 'moyen', label: 'Moyen', coins: 350, priceFcfa: 500 },
+  { id: 'grand', label: 'Grand', coins: 1000, priceFcfa: 1000 },
+];
 const REFILL_MS = 3 * 60 * 1000; // 3 minutes par vie
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
@@ -443,7 +456,13 @@ export default function MaRacinePuzzle() {
   const [currentLevel, setCurrentLevel] = useState(1);
   const [highestUnlocked, setHighestUnlocked] = useState(1);
   const [levelStars, setLevelStars] = useState<LevelStars>({});
-  const [viewMode, setViewMode] = useState<'map' | 'play' | 'profile'>('map');
+  const [viewMode, setViewMode] = useState<'map' | 'play' | 'profile' | 'shop'>('map');
+  const [selectedPack, setSelectedPack] = useState<CoinPack | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'wave' | 'om'>('wave');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
   const [coins, setCoins] = useState(0);
   const [avatarId, setAvatarId] = useState<string | null>(null);
   const [pseudo, setPseudo] = useState('');
@@ -1699,6 +1718,38 @@ export default function MaRacinePuzzle() {
     router.replace('/connexion');
   };
 
+  const resetShopFlow = () => {
+    setSelectedPack(null);
+    setPaymentReference('');
+    setPaymentSubmitted(false);
+    setPaymentError('');
+  };
+
+  const submitPaymentRequest = async () => {
+    if (!user || !selectedPack || !paymentReference.trim() || paymentSubmitting) return;
+    setPaymentSubmitting(true);
+    setPaymentError('');
+    try {
+      await addDoc(collection(db, 'paymentRequests'), {
+        uid: user.uid,
+        pseudo: pseudo || 'Joueur',
+        phone: phoneFromUser(user),
+        pack: selectedPack.id,
+        coinsAmount: selectedPack.coins,
+        priceFcfa: selectedPack.priceFcfa,
+        method: paymentMethod,
+        reference: paymentReference.trim(),
+        status: 'pending',
+        createdAt: serverTimestamp(),
+      });
+      setPaymentSubmitted(true);
+    } catch {
+      setPaymentError("Impossible d'envoyer la demande. Réessaie.");
+    } finally {
+      setPaymentSubmitting(false);
+    }
+  };
+
   const posInCity = posInCityFor(currentLevel);
   const levelType = levelTypeFor(posInCity);
   const collectTarget = collectTargetFor(posInCity);
@@ -1793,6 +1844,17 @@ export default function MaRacinePuzzle() {
               </div>
             </div>
 
+            <button
+              type="button"
+              className={`${styles.modalBtn} ${styles.pay}`}
+              onClick={() => {
+                resetShopFlow();
+                setViewMode('shop');
+              }}
+            >
+              🪙 Acheter des pièces
+            </button>
+
             <a
               href="https://wa.me/225554233234"
               target="_blank"
@@ -1828,6 +1890,112 @@ export default function MaRacinePuzzle() {
             >
               Déconnexion
             </button>
+          </div>
+        </div>
+      ) : viewMode === 'shop' ? (
+        <div className={styles.profileScreen}>
+          <div className={styles.topBar}>
+            <button
+              type="button"
+              className={styles.backBtn}
+              onClick={() => {
+                resetShopFlow();
+                setViewMode('profile');
+              }}
+            >
+              ← Carte
+            </button>
+            <div className={styles.cityLabel}>Boutique</div>
+            <div style={{ width: 34 }} />
+          </div>
+
+          <div className={styles.profileBody}>
+            {!selectedPack ? (
+              <div className={styles.shopPackGrid}>
+                {COIN_PACKS.map((pack) => (
+                  <button
+                    key={pack.id}
+                    type="button"
+                    className={styles.shopPackCard}
+                    onClick={() => setSelectedPack(pack)}
+                  >
+                    <div className={styles.shopPackLabel}>{pack.label}</div>
+                    <div className={styles.shopPackCoins}>🪙 {pack.coins}</div>
+                    <div className={styles.shopPackPrice}>{pack.priceFcfa} FCFA</div>
+                  </button>
+                ))}
+              </div>
+            ) : paymentSubmitted ? (
+              <div className={styles.modalCard}>
+                <div className={styles.modalTitle}>Demande envoyée ✅</div>
+                <div className={styles.modalBody} style={{ textAlign: 'center' }}>
+                  En attente de validation par un administrateur. Tes pièces
+                  seront créditées dès confirmation du paiement.
+                </div>
+                <button
+                  type="button"
+                  className={`${styles.modalBtn} ${styles.pay}`}
+                  onClick={resetShopFlow}
+                >
+                  Retour à la boutique
+                </button>
+              </div>
+            ) : (
+              <div className={styles.modalCard}>
+                <div className={styles.modalTitle}>
+                  {selectedPack.label} — {selectedPack.coins} 🪙
+                </div>
+                <div className={styles.modalBody}>
+                  Envoie {selectedPack.priceFcfa} FCFA au numéro Wave{' '}
+                  <strong>{WAVE_NUMBER}</strong> ou Orange Money{' '}
+                  <strong>{OM_NUMBER}</strong>, puis colle l&apos;ID de
+                  transaction ci-dessous.
+                </div>
+                <div className={styles.shopMethodRow}>
+                  <button
+                    type="button"
+                    className={`${styles.shopMethodBtn} ${
+                      paymentMethod === 'wave' ? styles.shopMethodBtnActive : ''
+                    }`}
+                    onClick={() => setPaymentMethod('wave')}
+                  >
+                    Wave
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.shopMethodBtn} ${
+                      paymentMethod === 'om' ? styles.shopMethodBtnActive : ''
+                    }`}
+                    onClick={() => setPaymentMethod('om')}
+                  >
+                    Orange Money
+                  </button>
+                </div>
+                <input
+                  className={styles.shopInput}
+                  type="text"
+                  placeholder="Référence / ID de transaction"
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                />
+                {paymentError && <p className={styles.shopError}>{paymentError}</p>}
+                <button
+                  type="button"
+                  className={`${styles.modalBtn} ${styles.pay}`}
+                  disabled={!paymentReference.trim() || paymentSubmitting}
+                  onClick={submitPaymentRequest}
+                >
+                  {paymentSubmitting ? 'Envoi…' : 'Envoyer la demande'}
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.modalBtn} ${styles.ghost}`}
+                  onClick={() => setSelectedPack(null)}
+                >
+                  ← Choisir un autre pack
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ) : viewMode === 'map' ? (
