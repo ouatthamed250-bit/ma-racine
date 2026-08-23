@@ -1941,7 +1941,7 @@ export default function MaRacinePuzzle() {
               className={styles.backBtn}
               onClick={() => {
                 resetShopFlow();
-                setViewMode('profile');
+                setViewMode('map');
               }}
             >
               ← Carte
