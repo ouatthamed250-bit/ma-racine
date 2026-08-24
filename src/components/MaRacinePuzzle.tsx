@@ -2138,6 +2138,7 @@ export default function MaRacinePuzzle() {
             const hasBg = CITY_BACKGROUNDS[ci] !== null;
             const nodePts = CITY_NODE_PERCENTS[ci];
             const prevHasBg = ci > 0 && CITY_BACKGROUNDS[ci - 1] !== null;
+            const nextHasBg = ci < CITY_BACKGROUNDS.length - 1 && CITY_BACKGROUNDS[ci + 1] !== null;
             return (
               <Fragment key={city.city}>
                 {prevHasBg && hasBg && (
@@ -2147,7 +2148,13 @@ export default function MaRacinePuzzle() {
                     className={styles.mapCloudVeil}
                   />
                 )}
-                <div className={styles.mapCitySection}>
+                <div
+                  className={
+                    hasBg && nextHasBg
+                      ? `${styles.mapCitySection} ${styles.mapCitySectionTight}`
+                      : styles.mapCitySection
+                  }
+                >
                 {!hasBg && <div className={styles.mapCityBanner}>{city.city}</div>}
                 <div className={hasBg ? styles.mapRoutePercent : styles.mapRoute}>
                   {hasBg ? (

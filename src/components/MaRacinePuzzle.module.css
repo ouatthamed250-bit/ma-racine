@@ -118,6 +118,9 @@
 .mapCitySection {
   margin-bottom: 16px;
 }
+.mapCitySectionTight {
+  margin-bottom: 6px;
+}
 .mapCityBanner {
   font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
@@ -1638,7 +1641,7 @@
   height: 110px;
   margin-top: 0;
   margin-right: -16px;
-  margin-bottom: 16px;
+  margin-bottom: 6px;
   margin-left: -16px;
   object-fit: cover;
   pointer-events: none;
