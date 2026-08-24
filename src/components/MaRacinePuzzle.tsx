@@ -135,6 +135,12 @@ const LEVELS = 96;
 const LEVELS_PER_CITY = 12;
 const DAILY_BONUS_KEY = 'maRacineLastBonusDate';
 
+// Coupe-circuit temporaire pour desactiver le verrouillage progressif des
+// villes (filtrage par currentCityIndex + 1 et voile de fumee) le temps
+// d'inserer les prochaines villes sans avoir a debloquer manuellement a
+// chaque fois. Repasser a true une fois toutes les villes pretes.
+const CITY_LOCK_ENABLED = false;
+
 // ---- Boutique de pièces : Wave/Orange Money, validation manuelle par l'admin ----
 const WAVE_NUMBER = '0749883981';
 const OM_NUMBER = '0749883981';
@@ -2163,9 +2169,9 @@ export default function MaRacinePuzzle() {
             const nodePts = CITY_NODE_PERCENTS[ci];
             const prevHasBg = ci > 0 && CITY_BACKGROUNDS[ci - 1] !== null;
             const nextHasBg = ci < CITY_BACKGROUNDS.length - 1 && CITY_BACKGROUNDS[ci + 1] !== null;
-            if (ci > currentCityIndex + 1) return null;
-            const isNextLocked = ci === currentCityIndex + 1;
-            const isFadingUnlock = ci === fadingCityIndex;
+            if (CITY_LOCK_ENABLED && ci > currentCityIndex + 1) return null;
+            const isNextLocked = CITY_LOCK_ENABLED && ci === currentCityIndex + 1;
+            const isFadingUnlock = CITY_LOCK_ENABLED && ci === fadingCityIndex;
             const showLockedVeil = isNextLocked || isFadingUnlock;
             return (
               <Fragment key={city.city}>
