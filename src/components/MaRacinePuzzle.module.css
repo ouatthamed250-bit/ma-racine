@@ -106,6 +106,7 @@
 }
 
 .travelMap {
+  position: relative;
   max-height: 600px;
   overflow-y: auto;
   padding: 0 16px 20px;
@@ -1635,12 +1636,23 @@
 }
 
 .mapCloudVeilWrap {
-  position: relative;
-  width: calc(100% + 32px);
-  height: 110px;
-  margin: 0 -16px 6px;
+  /* Sort du flux : ne reserve plus d'espace vertical propre. Sa position de
+     depart (avant marge) reste la position statique qu'il aurait eue dans
+     le flux, juste apres .mapCitySectionTight d'Abidjan (6px de marge) ;
+     margin-top le remonte pour chevaucher le bas de la route d'Abidjan.
+     left/right:0 (plutot que width:calc(100%+32px) + margin -16px) car,
+     pour un element en position:absolute, les pourcentages se resolvent
+     contre la boite de PADDING du conteneur positionne (.travelMap, 366px)
+     et non sa boite de CONTENU (334px) comme pour un enfant en flux normal
+     - verifie par mesure reelle, cf. memoire du pattern point 3. */
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 92px;
+  margin-top: -78px;
   overflow: hidden;
   pointer-events: none;
+  z-index: 3;
 }
 
 .mapCloudVeil {
@@ -1649,16 +1661,17 @@
   top: 0;
   left: 50%;
   /* nuage-voile.png (2048x768) : la texture dense n'occupe que 29%-67% de
-     la hauteur source. On agrandit l'image a taille fixe (772x289.5px, soit
-     un facteur d'echelle de ~0.377) pour que cette bande de 38% remplisse
-     exactement les 110px du bloc, puis on la recentre verticalement avec
-     translateY(-84px) pour aligner son sommet (29% source) sur le haut du
-     bloc. Valeurs absolues et independantes de la largeur du conteneur car
-     la hauteur du bloc (110px) est elle-meme fixe. */
-  width: 772px;
-  height: 289.5px;
+     la hauteur source. On agrandit l'image a taille fixe (646x242px,
+     echelle ~0.315) pour que cette bande de 38% remplisse exactement les
+     92px du bloc (72px de chevauchement sur Abidjan + 6px de bande visible
+     + 14px de chevauchement sur Accra - volontairement reduit cote Accra
+     pour ne pas masquer le lettrage "ACCRA" en haut de l'image de route),
+     puis on la recentre verticalement avec translateY(-70px) pour aligner
+     le sommet de la bande dense (29% source) sur le haut du bloc. */
+  width: 646px;
+  height: 242px;
   max-width: none;
-  transform: translate(-50%, -84px);
+  transform: translate(-50%, -70px);
   object-fit: cover;
   pointer-events: none;
 }
