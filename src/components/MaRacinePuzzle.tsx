@@ -139,7 +139,7 @@ const DAILY_BONUS_KEY = 'maRacineLastBonusDate';
 // villes (filtrage par currentCityIndex + 1 et voile de fumee) le temps
 // d'inserer les prochaines villes sans avoir a debloquer manuellement a
 // chaque fois. Repasser a true une fois toutes les villes pretes.
-const CITY_LOCK_ENABLED = false;
+const CITY_LOCK_ENABLED = true;
 
 // ---- Boutique de pièces : Wave/Orange Money, validation manuelle par l'admin ----
 const WAVE_NUMBER = '0749883981';
@@ -357,7 +357,7 @@ const CITY_BACKGROUNDS: (string | null)[] = [
   '/maps/ouaga-route.png',
   '/maps/cotonou-route.png',
   '/maps/douala-route.png',
-  null,
+  '/maps/addis-abeba-route.png',
 ];
 
 const CITY_NODE_PERCENTS: ({ x: number; y: number }[] | null)[] = [
@@ -466,7 +466,21 @@ const CITY_NODE_PERCENTS: ({ x: number; y: number }[] | null)[] = [
     { x: 41.32, y: 92.95 },
     { x: 24.44, y: 99.99 },
   ],
-  null,
+  // Addis Abeba
+  [
+    { x: 65.36, y: 48.74 },
+    { x: 56.04, y: 50.66 },
+    { x: 43.04, y: 53.62 },
+    { x: 56.95, y: 57.19 },
+    { x: 71.13, y: 60.68 },
+    { x: 67.27, y: 67.29 },
+    { x: 53.03, y: 71.09 },
+    { x: 40.18, y: 75.43 },
+    { x: 47.36, y: 82.19 },
+    { x: 60.74, y: 86.41 },
+    { x: 59.3, y: 93.31 },
+    { x: 66.49, y: 100.05 },
+  ],
 ];
 
 // Tracés invisibles (guides de déplacement du marcheur), un par ville à fond
@@ -487,7 +501,8 @@ const CITY_GUIDE_PATHS: (string | null)[] = [
   'M 44.61,37.97 Q 48.30,37.28 50.41,37.61 T 54.60,38.74 T 58.45,40.62 T 61.40,42.85 T 62.86,45.04 T 62.29,46.80 T 59.63,47.99 T 55.56,48.81 T 51.08,49.64 T 47.23,50.85 T 44.83,52.66 T 44.26,54.88 T 45.46,56.99 T 48.22,58.60 T 51.98,59.79 T 55.94,60.94 T 59.31,62.44 T 61.57,64.42 T 62.55,66.71 T 62.18,69.02 T 60.50,71.11 T 57.69,72.88 T 54.06,74.31 T 49.93,75.39 T 45.64,76.23 T 41.52,77.07 T 37.95,78.16 T 35.28,79.75 T 33.78,81.89 T 33.62,84.32 T 34.89,86.60 T 37.59,88.38 T 41.29,89.62 T 45.16,90.59 T 48.31,91.59 T 49.86,92.93 T 48.91,94.91 T 44.58,97.83 T 41.46,99.57',
   // Douala
   'M 53.68,50.56 Q 47.78,53.12 47.07,53.99 T 47.37,55.46 T 50.57,56.55 T 55.64,57.56 T 61.54,58.76 T 67.21,60.42 T 71.66,62.49 T 73.89,64.56 T 73.20,66.16 T 69.69,67.18 T 64.18,67.73 T 57.58,68.00 T 50.76,68.15 T 44.42,68.40 T 39.05,68.97 T 35.08,70.13 T 32.96,72.07 T 32.87,74.56 T 34.67,76.80 T 38.12,78.26 T 42.91,79.06 T 48.75,79.51 T 55.32,79.97 T 62.09,80.63 T 68.15,81.50 T 72.40,82.49 T 73.78,83.51 T 71.78,84.50 T 67.15,85.49 T 61.33,86.56 T 55.65,87.78 T 50.72,89.16 T 46.46,90.69 T 42.62,92.31 T 38.98,94.01 T 35.29,95.74 T 31.33,97.47 T 26.85,99.16 T 24.46,99.99',
-  null,
+  // Addis Abeba
+  'M 65.44,48.75 Q 62.66,49.46 60.51,49.84 T 55.88,50.62 T 51.04,51.44 T 46.85,52.29 T 44.20,53.17 T 43.84,54.06 T 45.87,54.97 T 49.67,55.84 T 54.44,56.67 T 59.41,57.42 T 63.98,58.19 T 67.72,59.11 T 70.22,60.36 T 71.17,62.05 T 70.59,64.05 T 68.80,66.05 T 66.15,67.73 T 62.89,68.98 T 59.16,69.92 T 55.08,70.72 T 50.80,71.53 T 46.66,72.46 T 43.20,73.60 T 40.99,75.00 T 40.49,76.71 T 41.72,78.60 T 44.30,80.47 T 47.81,82.07 T 51.78,83.32 T 55.63,84.38 T 58.74,85.50 T 60.53,86.95 T 60.86,88.81 T 60.26,91.00 T 59.50,93.34 T 59.37,95.63 T 60.64,97.70 T 64.09,99.36 T 66.45,100.07',
 ];
 
 // Tracé invisible du bus sur la scène de transition entre villes (coordonnées
