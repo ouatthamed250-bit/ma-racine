@@ -1640,11 +1640,11 @@
      depart (avant marge) reste la position statique qu'elle aurait eue dans
      le flux, juste apres .mapCitySectionTight d'Abidjan (6px de marge) ;
      margin-top la remonte pour chevaucher le bas de la route d'Abidjan
-     (~72px) et son bord bas chevauche legerement le haut de la route
-     d'Accra (~14px, volontairement reduit pour ne pas masquer le lettrage
-     "ACCRA" en haut de cette image). left/right:0 (plutot que
-     width:calc(100%+32px) + margin -16px) car, pour un element en
-     position:absolute, les pourcentages se resolvent contre la boite de
+     (~57px) et son bord bas chevauche legerement le haut de la route
+     d'Accra (~11px, meme ratio qu'avant, volontairement reduit pour ne pas
+     masquer le lettrage "ACCRA" en haut de cette image). left/right:0
+     (plutot que width:calc(100%+32px) + margin -16px) car, pour un element
+     en position:absolute, les pourcentages se resolvent contre la boite de
      PADDING du conteneur positionne (.travelMap, 366px) et non sa boite de
      CONTENU (334px) comme pour un enfant en flux normal - verifie par
      mesure reelle, cf. memoire du pattern point 3.
@@ -1658,8 +1658,8 @@
   left: 0;
   right: 0;
   width: 100%;
-  height: 92px;
-  margin-top: -78px;
+  height: 74px;
+  margin-top: -63px;
   max-width: none;
   object-fit: cover;
   pointer-events: none;
