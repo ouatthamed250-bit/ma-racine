@@ -1634,15 +1634,31 @@
   z-index: 5;
 }
 
+.mapCloudVeilWrap {
+  position: relative;
+  width: calc(100% + 32px);
+  height: 110px;
+  margin: 0 -16px 6px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .mapCloudVeil {
   display: block;
-  width: calc(100% + 32px);
+  position: absolute;
+  top: 0;
+  left: 50%;
+  /* nuage-voile.png (2048x768) : la texture dense n'occupe que 29%-67% de
+     la hauteur source. On agrandit l'image a taille fixe (772x289.5px, soit
+     un facteur d'echelle de ~0.377) pour que cette bande de 38% remplisse
+     exactement les 110px du bloc, puis on la recentre verticalement avec
+     translateY(-84px) pour aligner son sommet (29% source) sur le haut du
+     bloc. Valeurs absolues et independantes de la largeur du conteneur car
+     la hauteur du bloc (110px) est elle-meme fixe. */
+  width: 772px;
+  height: 289.5px;
   max-width: none;
-  height: 110px;
-  margin-top: 0;
-  margin-right: -16px;
-  margin-bottom: 6px;
-  margin-left: -16px;
+  transform: translate(-50%, -84px);
   object-fit: cover;
   pointer-events: none;
 }
