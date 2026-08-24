@@ -561,6 +561,15 @@ export default function MaRacinePuzzle() {
   const [showNoLives, setShowNoLives] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [mapUnlocked, setMapUnlocked] = useState(1);
+  const currentCityIndex = cityForLevel(mapUnlocked);
+  const [fadingCityIndex, setFadingCityIndex] = useState<number | null>(null);
+  const prevCityIndexRef = useRef(currentCityIndex);
+  useEffect(() => {
+    if (currentCityIndex > prevCityIndexRef.current) {
+      setFadingCityIndex(prevCityIndexRef.current + 1);
+    }
+    prevCityIndexRef.current = currentCityIndex;
+  }, [currentCityIndex]);
   const [walker, setWalker] = useState<{
     cityIndex: number;
     from: number;
@@ -2139,6 +2148,10 @@ export default function MaRacinePuzzle() {
             const nodePts = CITY_NODE_PERCENTS[ci];
             const prevHasBg = ci > 0 && CITY_BACKGROUNDS[ci - 1] !== null;
             const nextHasBg = ci < CITY_BACKGROUNDS.length - 1 && CITY_BACKGROUNDS[ci + 1] !== null;
+            if (ci > currentCityIndex + 1) return null;
+            const isNextLocked = ci === currentCityIndex + 1;
+            const isFadingUnlock = ci === fadingCityIndex;
+            const showLockedVeil = isNextLocked || isFadingUnlock;
             return (
               <Fragment key={city.city}>
                 {prevHasBg && hasBg && (
@@ -2155,6 +2168,20 @@ export default function MaRacinePuzzle() {
                       : styles.mapCitySection
                   }
                 >
+                {showLockedVeil && (
+                  <div
+                    className={`${styles.mapCityLockedVeil} ${
+                      isFadingUnlock ? styles.mapCityLockedVeilFading : ''
+                    }`}
+                    onAnimationEnd={() => {
+                      if (isFadingUnlock) setFadingCityIndex(null);
+                    }}
+                  >
+                    <span className={styles.mapCityLockedBadge}>
+                      🔒 Termine {PALETTES[ci - 1]?.city} pour débloquer
+                    </span>
+                  </div>
+                )}
                 {!hasBg && <div className={styles.mapCityBanner}>{city.city}</div>}
                 <div className={hasBg ? styles.mapRoutePercent : styles.mapRoute}>
                   {hasBg ? (
