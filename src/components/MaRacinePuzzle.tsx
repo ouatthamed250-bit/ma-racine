@@ -139,7 +139,7 @@ const DAILY_BONUS_KEY = 'maRacineLastBonusDate';
 // villes (filtrage par currentCityIndex + 1 et voile de fumee) le temps
 // d'inserer les prochaines villes sans avoir a debloquer manuellement a
 // chaque fois. Repasser a true une fois toutes les villes pretes.
-const CITY_LOCK_ENABLED = true;
+const CITY_LOCK_ENABLED = false;
 
 // ---- Boutique de pièces : Wave/Orange Money, validation manuelle par l'admin ----
 const WAVE_NUMBER = '0749883981';
