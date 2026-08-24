@@ -109,6 +109,11 @@
   max-height: 600px;
   overflow-y: auto;
   padding: 0 16px 20px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.travelMap::-webkit-scrollbar {
+  display: none;
 }
 .mapCitySection {
   margin-bottom: 16px;
