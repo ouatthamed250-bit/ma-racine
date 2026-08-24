@@ -1634,6 +1634,7 @@
 .mapCloudVeil {
   display: block;
   width: calc(100% + 32px);
+  max-width: none;
   height: 110px;
   margin-top: 0;
   margin-right: -16px;
