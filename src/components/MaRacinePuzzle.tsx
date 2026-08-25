@@ -131,8 +131,8 @@ const PALETTES: Palette[] = [
   },
 ];
 
-const LEVELS = 96;
-const LEVELS_PER_CITY = 12;
+const LEVELS = 80;
+const LEVELS_PER_CITY = 10;
 const DAILY_BONUS_KEY = 'maRacineLastBonusDate';
 
 // Coupe-circuit temporaire pour desactiver le verrouillage progressif des
@@ -177,7 +177,7 @@ const todayStr = () => {
   return `${d.getFullYear()}-${m}-${day}`;
 };
 
-// ---- Progression à 96 niveaux : formules de difficulté ----
+// ---- Progression à 80 niveaux (10 par ville) : formules de difficulté ----
 const posInCityFor = (L: number) => ((L - 1) % LEVELS_PER_CITY) + 1;
 
 type LevelType = 'classique' | 'boss' | 'collecte' | 'court';
@@ -189,7 +189,7 @@ const LEVEL_TYPE_LABEL: Record<LevelType, string> = {
 };
 
 const levelTypeFor = (pos: number): LevelType =>
-  pos === 12
+  pos === LEVELS_PER_CITY
     ? 'boss'
     : pos === 4 || pos === 8
     ? 'collecte'
@@ -197,7 +197,7 @@ const levelTypeFor = (pos: number): LevelType =>
     ? 'court'
     : 'classique';
 
-const activeTypeCountFor = (pos: number) => (pos <= 4 ? 4 : pos <= 8 ? 5 : 6);
+const activeTypeCountFor = (pos: number) => (pos <= 3 ? 4 : pos <= 7 ? 5 : 6);
 const gridSizeFor = (pos: number) => (levelTypeFor(pos) === 'boss' ? 7 : 6);
 const collectTargetFor = (pos: number) => 12 + pos;
 
@@ -224,10 +224,10 @@ const starsForScore = (level: number, finalScore: number): 1 | 2 | 3 => {
 // ---- Obstacles "fétiches" 🗿 : nombre + coups pour les casser, selon la position dans la ville ----
 type ObstacleSpec = { count: number; hits: number };
 const obstacleSpecFor = (pos: number): ObstacleSpec | null => {
-  if (pos >= 12) return { count: 4, hits: 3 };
-  if (pos >= 10) return { count: 3, hits: 2 };
-  if (pos >= 7) return { count: 2, hits: 2 };
-  if (pos >= 5) return { count: 1, hits: 1 };
+  if (pos >= 10) return { count: 4, hits: 3 };
+  if (pos >= 8) return { count: 3, hits: 2 };
+  if (pos >= 6) return { count: 2, hits: 2 };
+  if (pos >= 4) return { count: 1, hits: 1 };
   return null;
 };
 
@@ -239,7 +239,7 @@ const randType = (pIdx: number, activeCount: number) =>
 
 // ---- Objectifs bonus multi-ingrédients : 2e voie (optionnelle) vers 3 étoiles,
 // sur tous les niveaux. Le score seul reste suffisant pour gagner le niveau. ----
-const objectiveCountFor = (pos: number) => (pos <= 3 ? 1 : pos <= 7 ? 2 : 3);
+const objectiveCountFor = (pos: number) => (pos <= 3 ? 1 : pos <= 6 ? 2 : 3);
 const objectiveTargetFor = (pos: number) => 6 + Math.floor(pos / 2);
 const objectiveIngredientsFor = (pIdx: number, pos: number) =>
   typesArr(pIdx).slice(0, objectiveCountFor(pos));
@@ -360,126 +360,121 @@ const CITY_BACKGROUNDS: (string | null)[] = [
   '/maps/addis-abeba-route.png',
 ];
 
+// Positions des 10 nœuds de niveau par ville, recalculées par échantillonnage
+// a arc-longueur uniforme du CITY_GUIDE_PATHS correspondant (points
+// d'echantillonnage tous les 1/80e de segment, distance cumulee le long
+// de la courbe, 10 points espaces uniformement par distance parcourue de
+// bout en bout), avec un garde-fou d'ecart minimal a l'echelle d'affichage
+// reelle (~42px, cf. memoire du pattern point 4) pour eviter tout
+// chevauchement visuel sur les virages les plus serres (deux villes -
+// Ouagadougou entre les positions 1-2, Addis Abeba entre 2-3 - necessitaient
+// ce garde-fou ; les 6 autres restent quasi identiques a l'echantillonnage
+// purement uniforme). Les tracés-guides du marcheur (CITY_GUIDE_PATHS)
+// restent inchangés.
 const CITY_NODE_PERCENTS: ({ x: number; y: number }[] | null)[] = [
   // Abidjan
   [
     { x: 49.52, y: 38.58 },
-    { x: 46.93, y: 46.29 },
-    { x: 54.86, y: 52.69 },
-    { x: 43.98, y: 57.66 },
-    { x: 50.06, y: 64.65 },
-    { x: 62.38, y: 68.24 },
-    { x: 55.83, y: 75.12 },
-    { x: 41.5, y: 77.8 },
-    { x: 30.5, y: 85.2 },
-    { x: 45.2, y: 90.73 },
-    { x: 54.8, y: 94.44 },
-    { x: 62.6, y: 99.28 },
+    { x: 56.66, y: 44.16 },
+    { x: 42.57, y: 49.53 },
+    { x: 52.41, y: 55.44 },
+    { x: 44.06, y: 62.79 },
+    { x: 60.51, y: 67.53 },
+    { x: 52.59, y: 76.08 },
+    { x: 37.29, y: 83.05 },
+    { x: 44.61, y: 93.71 },
+    { x: 60.53, y: 99.94 },
   ],
   // Accra
   [
     { x: 63.76, y: 36.18 },
-    { x: 60.11, y: 43.81 },
-    { x: 49.87, y: 48.62 },
-    { x: 51.22, y: 56.1 },
-    { x: 59.08, y: 62.14 },
-    { x: 47.19, y: 65.73 },
-    { x: 37.94, y: 71.17 },
-    { x: 46.25, y: 77.15 },
-    { x: 57.13, y: 81.52 },
-    { x: 57.06, y: 89.0 },
-    { x: 48.88, y: 94.98 },
+    { x: 54.86, y: 47.45 },
+    { x: 40.53, y: 51.29 },
+    { x: 53.04, y: 56.65 },
+    { x: 54.51, y: 63.78 },
+    { x: 40.51, y: 68.65 },
+    { x: 46.83, y: 77.3 },
+    { x: 60.31, y: 83.52 },
+    { x: 51.49, y: 93.11 },
     { x: 38.43, y: 99.94 },
   ],
   // Lagos
   [
     { x: 66.09, y: 43.66 },
-    { x: 54.88, y: 45.51 },
-    { x: 45.39, y: 49.28 },
-    { x: 51.97, y: 54.67 },
-    { x: 48.16, y: 60.83 },
-    { x: 37.44, y: 63.34 },
-    { x: 29.86, y: 68.24 },
-    { x: 38.83, y: 72.49 },
-    { x: 46.89, y: 77.21 },
-    { x: 46.52, y: 83.73 },
-    { x: 39.93, y: 89.11 },
+    { x: 53.46, y: 45.9 },
+    { x: 47.59, y: 52.44 },
+    { x: 52.68, y: 59.43 },
+    { x: 40.28, y: 62.68 },
+    { x: 29.88, y: 67.99 },
+    { x: 41.34, y: 73.58 },
+    { x: 47.07, y: 82.92 },
+    { x: 37.14, y: 90.92 },
     { x: 28.9, y: 99.94 },
   ],
   // Dakar
   [
     { x: 51.58, y: 38.88 },
-    { x: 43.94, y: 42.64 },
-    { x: 41.43, y: 48.21 },
-    { x: 45.33, y: 53.47 },
-    { x: 51.11, y: 58.19 },
-    { x: 56.24, y: 63.16 },
-    { x: 56.17, y: 68.9 },
-    { x: 51.04, y: 73.86 },
-    { x: 45.79, y: 78.77 },
-    { x: 44.52, y: 84.45 },
-    { x: 47.2, y: 89.95 },
+    { x: 43.72, y: 42.9 },
+    { x: 42.73, y: 50.63 },
+    { x: 49.19, y: 56.67 },
+    { x: 55.77, y: 62.59 },
+    { x: 54.87, y: 70.42 },
+    { x: 48.2, y: 76.26 },
+    { x: 44.44, y: 83.85 },
+    { x: 48.35, y: 91.73 },
     { x: 51.18, y: 99.94 },
   ],
   // Ouagadougou
   [
     { x: 51.17, y: 36.18 },
-    { x: 62.64, y: 38.52 },
-    { x: 45.13, y: 41.93 },
-    { x: 57.04, y: 46.17 },
-    { x: 67.12, y: 51.91 },
-    { x: 52.04, y: 57.89 },
-    { x: 36.83, y: 63.82 },
-    { x: 29.71, y: 72.13 },
-    { x: 44.58, y: 77.99 },
-    { x: 55.84, y: 84.99 },
-    { x: 45.3, y: 92.94 },
+    { x: 45.96, y: 41.94 },
+    { x: 55.26, y: 45.74 },
+    { x: 67.72, y: 49.05 },
+    { x: 53.51, y: 57.38 },
+    { x: 36.58, y: 63.94 },
+    { x: 34.36, y: 74.73 },
+    { x: 51.59, y: 80.4 },
+    { x: 47.9, y: 91.97 },
     { x: 31.63, y: 99.94 },
   ],
   // Cotonou
   [
-    { x: 44.63, y: 37.98 },
-    { x: 59.77, y: 41.36 },
-    { x: 63.0, y: 46.88 },
-    { x: 46.03, y: 50.91 },
-    { x: 45.7, y: 57.78 },
-    { x: 58.66, y: 61.65 },
-    { x: 62.17, y: 69.44 },
-    { x: 51.83, y: 75.02 },
-    { x: 35.32, y: 79.42 },
-    { x: 35.6, y: 87.62 },
-    { x: 47.46, y: 91.1 },
-    { x: 41.45, y: 99.58 },
+    { x: 44.61, y: 37.97 },
+    { x: 58.83, y: 40.86 },
+    { x: 55.6, y: 48.8 },
+    { x: 44.53, y: 55.72 },
+    { x: 57.86, y: 61.66 },
+    { x: 58.28, y: 72.58 },
+    { x: 43.95, y: 76.56 },
+    { x: 33.75, y: 84.77 },
+    { x: 46.71, y: 91.01 },
+    { x: 41.46, y: 99.57 },
   ],
   // Douala
   [
-    { x: 53.67, y: 50.54 },
-    { x: 46.49, y: 55.08 },
-    { x: 65.63, y: 59.7 },
-    { x: 74.57, y: 65.33 },
-    { x: 53.82, y: 68.15 },
-    { x: 32.95, y: 71.09 },
-    { x: 34.02, y: 76.81 },
-    { x: 54.52, y: 79.74 },
-    { x: 74.49, y: 83.66 },
-    { x: 58.15, y: 87.08 },
-    { x: 41.32, y: 92.95 },
-    { x: 24.44, y: 99.99 },
+    { x: 53.68, y: 50.56 },
+    { x: 57.69, y: 57.95 },
+    { x: 73.11, y: 66.21 },
+    { x: 53.39, y: 68.11 },
+    { x: 33.93, y: 70.87 },
+    { x: 47.14, y: 79.39 },
+    { x: 66.94, y: 81.31 },
+    { x: 61.77, y: 86.47 },
+    { x: 42.78, y: 92.24 },
+    { x: 24.46, y: 99.99 },
   ],
   // Addis Abeba
   [
-    { x: 65.36, y: 48.74 },
-    { x: 56.04, y: 50.66 },
-    { x: 43.04, y: 53.62 },
-    { x: 56.95, y: 57.19 },
-    { x: 71.13, y: 60.68 },
-    { x: 67.27, y: 67.29 },
-    { x: 53.03, y: 71.09 },
-    { x: 40.18, y: 75.43 },
-    { x: 47.36, y: 82.19 },
-    { x: 60.74, y: 86.41 },
-    { x: 59.3, y: 93.31 },
-    { x: 66.49, y: 100.05 },
+    { x: 65.44, y: 48.75 },
+    { x: 51.28, y: 51.4 },
+    { x: 56.83, y: 57.05 },
+    { x: 67.72, y: 59.11 },
+    { x: 68.41, y: 66.34 },
+    { x: 54.87, y: 70.75 },
+    { x: 41.2, y: 74.8 },
+    { x: 50.52, y: 82.93 },
+    { x: 60.53, y: 90.26 },
+    { x: 66.45, y: 100.07 },
   ],
 ];
 
@@ -1818,16 +1813,16 @@ export default function MaRacinePuzzle() {
   const goNextLevel = () => {
     playSound('clic.mp3');
     if (currentLevel >= LEVELS) {
-      // Dernier niveau du jeu (96) : pas de niveau suivant, pas d'animation à
-      // déclencher (sinon walker.to viserait l'index 12 d'un tableau de 12
-      // nœuds, 0-11). On reste simplement sur la modale de victoire.
+      // Dernier niveau du jeu (LEVELS) : pas de niveau suivant, pas d'animation à
+      // déclencher (sinon walker.to viserait un index hors des 10 nœuds
+      // d'une ville, 0-9). On reste simplement sur la modale de victoire.
       return;
     }
     const next = Math.min(LEVELS, currentLevel + 1);
     setShowVictoryModal(false);
     pendingNextRef.current = next;
 
-    if (next === 12 && cityForLevel(currentLevel) === 0) {
+    if (next === LEVELS_PER_CITY && cityForLevel(currentLevel) === 0) {
       // Scène d'intro dramatique avant le boss d'Abidjan : remplace la
       // transition normale, bloque commitNext() jusqu'au clic "Commencer".
       if (!inFeticheMusicRef.current) startFeticheMusic();
