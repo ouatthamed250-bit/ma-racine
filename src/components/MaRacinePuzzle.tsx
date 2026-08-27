@@ -505,8 +505,32 @@ const CITY_GUIDE_PATHS: (string | null)[] = [
 const BUS_TRANSITION_GUIDE_D =
   'M 25.41,91.16 Q 32.30,89.50 32.82,88.63 Q 33.33,87.75 33.76,86.88 Q 34.20,86.00 34.14,85.13 Q 34.09,84.25 33.91,83.38 Q 33.72,82.50 34.59,81.63 Q 35.45,80.76 36.37,79.88 Q 37.30,79.01 37.97,78.18 Q 38.65,77.35 39.33,76.47 Q 40.01,75.60 40.92,74.72 Q 41.83,73.85 42.85,72.97 Q 43.86,72.10 45.21,71.22 Q 46.56,70.35 48.31,69.48 Q 50.07,68.60 52.19,67.73 Q 54.31,66.85 56.70,65.98 Q 59.08,65.10 61.46,64.27 Q 63.83,63.44 65.56,62.57 Q 67.29,61.69 68.09,60.82 Q 68.90,59.94 68.57,59.07 Q 68.25,58.20 66.65,57.32 Q 65.05,56.45 61.96,55.57 Q 58.87,54.70 53.88,53.82 Q 48.89,52.95 46.33,52.07 T 43.77,51.20';
 
-// Éclair en zigzag pour la scène d'intro du boss d'Abidjan (viewBox 0 0 20 100).
+// Éclair en zigzag pour la scène d'intro boss (viewBox 0 0 20 100), générique.
 const BOSS_BOLT_D = 'M 10,0 L 4,22 L 12,26 L 3,50 L 13,54 L 5,78 L 15,80 L 8,100';
+
+// Assets de la scène d'intro boss (statue fétiche + position des yeux lumineux),
+// un par ville. null tant que l'asset de la ville n'existe pas encore : la scène
+// est alors simplement ignorée (passage direct au niveau suivant).
+type FeticheAsset = {
+  src: string;
+  eyeLeft: { left: string; top: string };
+  eyeRight: { left: string; top: string };
+};
+const FETICHE_ASSETS: (FeticheAsset | null)[] = [
+  // Abidjan
+  {
+    src: '/maps/fetiche-abidjan.png',
+    eyeLeft: { left: '41%', top: '23%' },
+    eyeRight: { left: '59%', top: '23%' },
+  },
+  null, // Accra
+  null, // Lagos
+  null, // Dakar
+  null, // Ouagadougou
+  null, // Cotonou
+  null, // Douala
+  null, // Addis Abeba
+];
 
 // Données de route (tracé + coordonnées des nœuds) pour une ville donnée.
 function cityRoute(ci: number): {
@@ -1822,9 +1846,11 @@ export default function MaRacinePuzzle() {
     setShowVictoryModal(false);
     pendingNextRef.current = next;
 
-    if (next === LEVELS_PER_CITY && cityForLevel(currentLevel) === 0) {
-      // Scène d'intro dramatique avant le boss d'Abidjan : remplace la
-      // transition normale, bloque commitNext() jusqu'au clic "Commencer".
+    if (next === LEVELS_PER_CITY && FETICHE_ASSETS[cityForLevel(currentLevel)] !== null) {
+      // Scène d'intro dramatique avant le boss d'une ville (si son fétiche
+      // existe dans FETICHE_ASSETS) : remplace la transition normale,
+      // bloque commitNext() jusqu'au clic "Commencer". Ignorée sans casser
+      // quoi que ce soit tant qu'une ville n'a pas encore son asset (null).
       if (!inFeticheMusicRef.current) startFeticheMusic();
       setShowBossIntro(true);
       return;
@@ -1951,6 +1977,8 @@ export default function MaRacinePuzzle() {
   const collectTarget = collectTargetFor(posInCity);
   const isCollecte = levelType === 'collecte';
   const paletteIndex = cityForLevel(currentLevel);
+  const bossFetiche = FETICHE_ASSETS[paletteIndex] ?? FETICHE_ASSETS[0]!;
+  const bossSkyBg = CITY_BACKGROUNDS[paletteIndex] ?? CITY_BACKGROUNDS[0]!;
   const activeCount = activeTypeCountFor(posInCity);
   const types = typesArr(paletteIndex).slice(0, activeCount);
   const gridCols = gridView[0]?.length ?? 6;
@@ -2808,7 +2836,10 @@ export default function MaRacinePuzzle() {
 
       {showBossIntro && (
         <div className={styles.bossIntro}>
-          <div className={styles.bossIntroSky} />
+          <div
+            className={styles.bossIntroSky}
+            style={{ backgroundImage: `url(${bossSkyBg})` }}
+          />
           <div className={styles.bossIntroVeil} />
           <div className={`${styles.bossIntroCloud} ${styles.bossIntroCloud1}`} />
           <div className={`${styles.bossIntroCloud} ${styles.bossIntroCloud2}`} />
@@ -2832,12 +2863,12 @@ export default function MaRacinePuzzle() {
               <div className={styles.bossStatueBreathe}>
                 <div className={styles.bossStatueImgWrap}>
                   <img
-                    src="/maps/fetiche-abidjan.png"
+                    src={bossFetiche.src}
                     alt=""
                     className={styles.bossStatueImg}
                   />
-                  <span className={styles.bossEye} style={{ left: '41%', top: '23%' }} />
-                  <span className={styles.bossEye} style={{ left: '59%', top: '23%' }} />
+                  <span className={styles.bossEye} style={bossFetiche.eyeLeft} />
+                  <span className={styles.bossEye} style={bossFetiche.eyeRight} />
                 </div>
               </div>
             </div>

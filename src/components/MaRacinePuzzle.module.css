@@ -773,7 +773,7 @@
   padding: 20px;
 }
 
-/* ---- Scène d'intro du boss d'Abidjan (niveau 12) ---- */
+/* ---- Scène d'intro du boss (niveau LEVELS_PER_CITY), generique par ville ---- */
 
 .bossIntro {
   position: absolute;
@@ -789,7 +789,7 @@
 .bossIntroSky {
   position: absolute;
   inset: 0;
-  background-image: url('/maps/abidjan-route.png');
+  /* background-image fourni en inline (par ville) dans le JSX */
   background-position: center 95%;
   background-size: cover;
 }
