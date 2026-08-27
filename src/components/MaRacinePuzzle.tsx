@@ -1846,11 +1846,13 @@ export default function MaRacinePuzzle() {
     setShowVictoryModal(false);
     pendingNextRef.current = next;
 
-    if (next === LEVELS_PER_CITY && FETICHE_ASSETS[cityForLevel(currentLevel)] !== null) {
-      // Scène d'intro dramatique avant le boss d'une ville (si son fétiche
-      // existe dans FETICHE_ASSETS) : remplace la transition normale,
-      // bloque commitNext() jusqu'au clic "Commencer". Ignorée sans casser
-      // quoi que ce soit tant qu'une ville n'a pas encore son asset (null).
+    if (posInCityFor(next) === LEVELS_PER_CITY && FETICHE_ASSETS[cityForLevel(currentLevel)]) {
+      // Scène d'intro dramatique avant le boss de N'IMPORTE QUELLE ville
+      // (si son fétiche existe dans FETICHE_ASSETS) : remplace la
+      // transition normale, bloque commitNext() jusqu'au clic "Commencer".
+      // Ignorée sans casser quoi que ce soit tant qu'une ville n'a pas
+      // encore son asset (null) : on tombe alors dans le commitNext()
+      // normal (marcheur/bus) juste en dessous.
       if (!inFeticheMusicRef.current) startFeticheMusic();
       setShowBossIntro(true);
       return;
